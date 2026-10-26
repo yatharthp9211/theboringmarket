@@ -1,0 +1,3064 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RuView: Room WiFi Spatial Radar &amp; DensePose | 3-Node Live Tomography</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Three.js & OrbitControls for 3D Spatial Radar -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            slate: {
+              950: '#060913',
+              900: '#0b1120',
+              850: '#111827',
+              800: '#1e293b',
+              750: '#283548',
+              700: '#334155',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      background-color: #060913;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(6, 182, 212, 0.08) 0%, transparent 35%),
+        radial-gradient(circle at 85% 80%, rgba(245, 158, 11, 0.06) 0%, transparent 35%),
+        linear-gradient(to right, rgba(30, 41, 59, 0.22) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(30, 41, 59, 0.22) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+      color: #f1f5f9;
+      overflow-x: hidden;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b1120;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    .led-bulb {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .led-bulb::after {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 5px;
+      width: 8px;
+      height: 8px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.45);
+      filter: blur(1px);
+    }
+    .led-off {
+      background: radial-gradient(circle at 35% 35%, #334155, #0f172a);
+      border: 2px solid #475569;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+    }
+    .led-on-cyan {
+      background: radial-gradient(circle at 35% 35%, #ffffff, #67e8f9 45%, #06b6d4 90%);
+      border: 2px solid #cffafe;
+      box-shadow: 0 0 18px #22d3ee, 0 0 36px rgba(6, 182, 212, 0.7), inset 0 0 8px #ffffff;
+    }
+    .led-on-amber {
+      background: radial-gradient(circle at 35% 35%, #ffffff, #fde68a 45%, #f59e0b 90%);
+      border: 2px solid #fef3c7;
+      box-shadow: 0 0 18px #fbbf24, 0 0 36px rgba(245, 158, 11, 0.7), inset 0 0 8px #ffffff;
+    }
+    .led-on-red {
+      background: radial-gradient(circle at 35% 35%, #fff1f2, #f87171 45%, #dc2626 90%);
+      border: 2px solid #fecdd3;
+      box-shadow: 0 0 22px #ef4444, 0 0 44px rgba(239, 68, 68, 0.85), inset 0 0 8px #ffffff;
+    }
+
+    .card-idle {
+      border-color: rgba(51, 65, 85, 0.7);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .card-active-cyan {
+      border-color: #22d3ee;
+      box-shadow: 0 0 25px -3px rgba(6, 182, 212, 0.35), inset 0 0 15px rgba(6, 182, 212, 0.08);
+    }
+    .card-active-amber {
+      border-color: #fbbf24;
+      box-shadow: 0 0 25px -3px rgba(245, 158, 11, 0.35), inset 0 0 15px rgba(245, 158, 11, 0.08);
+    }
+    .card-active-red {
+      border-color: #f87171;
+      box-shadow: 0 0 30px -2px rgba(239, 68, 68, 0.45), inset 0 0 20px rgba(239, 68, 68, 0.14);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      background: transparent;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: #38bdf8;
+      border: 2px solid #ffffff;
+      margin-top: -6px;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+    }
+
+    @keyframes pulse-fast {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.65; transform: scale(0.98); }
+    }
+    .animate-breach {
+      animation: pulse-fast 0.9s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 sm:p-5 select-none">
+
+  <!-- ===================================================================== -->
+  <!-- TOP ROOM RADAR HEADER                                                 -->
+  <!-- ===================================================================== -->
+  <header class="w-full max-w-[1650px] mx-auto mb-4 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-4 shadow-xl">
+    <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+      
+      <!-- Brand Title & Room Mapping Details -->
+      <div class="flex items-start sm:items-center gap-3.5">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-sky-600/30 border border-cyan-400/40 flex items-center justify-center shrink-0 shadow-inner">
+          <i class="fa-solid fa-map-location-dot text-cyan-400 text-2xl animate-pulse"></i>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight text-white">
+              RuView: <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-emerald-400">Room Wi-Fi Spatial Radar</span>
+            </h1>
+            <span class="px-2.5 py-0.5 text-[11px] font-mono uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 rounded-full flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+              3-Node ESP32 Live Mesh
+            </span>
+          </div>
+          <p class="text-xs sm:text-sm text-slate-400 font-medium mt-0.5">
+            Physical Room: <span class="text-slate-200 font-mono font-semibold" id="header-room-dim">1.0m × 0.7m</span> • Tabletop Wi-Fi Mesh • <span class="text-cyan-300 font-mono">COM11 (Rx Hub) + COM6, COM7 (Tx)</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- AI Neural Model & Geometry Badges -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-xs font-semibold">
+          <i class="fa-solid fa-brain text-cyan-400"></i>
+          <span>ruvnet/wifi-densepose-pretrained</span>
+        </div>
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-500/40 text-indigo-300 text-xs font-semibold">
+          <i class="fa-solid fa-fingerprint text-indigo-400"></i>
+          <span>128-Dim InfoNCE Embedding</span>
+        </div>
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-semibold">
+          <i class="fa-solid fa-person text-emerald-400"></i>
+          <span>17-Keypoint DensePose</span>
+        </div>
+      </div>
+
+      <!-- Mode Selector & Connection Status Pill -->
+      <div class="flex flex-wrap items-center gap-2 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800">
+        <button id="btn-mode-ws" onclick="setOperatingMode('ws')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 bg-cyan-600 text-white shadow">
+          <span>⚡</span> Live Hardware Feed
+        </button>
+        <button id="btn-mode-interactive" onclick="setOperatingMode('interactive')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800">
+          <span>🖐️</span> Interactive Test
+        </button>
+        <button id="btn-calibrate-table" onclick="startBaselineCalibration(30)" title="Clear table and room of humans and objects, then click to record 30s free-space baseline" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-amber-300 hover:text-white hover:bg-amber-950/70 border border-amber-500/40">
+          <span>⚖️</span> Calibrate 30s
+        </button>
+        <a href="map.html" title="Dedicated 2D Map (ESP Positions & Object Tracking)" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-cyan-300 hover:text-white hover:bg-cyan-900/60 border border-cyan-500/40">
+          <span>🗺️</span> 2D Map
+        </a>
+        <a href="/" title="Open 3D RuView Observatory (https://ruvnet.github.io/RuView/)" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800">
+          <span>🔭</span> Observatory
+        </a>
+        <a href="pose-fusion.html" title="Dual-Modal Pose Fusion (Video + WiFi)" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-indigo-300 hover:text-white hover:bg-indigo-900/60 border border-indigo-500/40">
+          <span>👤</span> Pose Fusion
+        </a>
+
+        <!-- Status Pill -->
+        <div id="status-pill" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-mono">
+          <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="status-text" class="text-emerald-300 font-semibold">LIVE SENSOR STREAM</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Configurable WebSocket & Room Info Bar -->
+    <div id="ws-config-bar" class="mt-3 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="flex flex-wrap items-center gap-2 flex-1">
+        <span class="font-mono text-slate-400"><i class="fa-solid fa-network-wired mr-1 text-cyan-400"></i>Controller WS:</span>
+        <input id="ws-url-input" type="text" value="" placeholder="ws://localhost:3000/ws/sensing" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 font-mono text-cyan-300 w-64 focus:outline-none focus:border-cyan-400" />
+        <button onclick="reconnectWebSocket()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg transition">
+          <i class="fa-solid fa-rotate mr-1"></i>Connect
+        </button>
+        <span id="ws-retry-label" class="text-slate-400 font-mono ml-2">Auto-reconnect active (3.0s)</span>
+      </div>
+      <div class="text-slate-400 font-mono flex items-center gap-3">
+        <span>Hardware Serial: <span id="hardware-serial-badge" class="text-emerald-400 font-semibold">COM11 @ 115200</span></span>
+        <span>•</span>
+        <span>Neural Inference: <span id="ai-latency-pill" class="text-cyan-300 font-semibold">0.21 ms</span></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- MAIN WORKSPACE: 3 LIVE HARDWARE NODES + ROOM MAP & RADAR              -->
+  <!-- ===================================================================== -->
+  <main class="w-full max-w-[1650px] mx-auto flex-1 flex flex-col gap-4">
+
+    <!-- 1. THREE LIVE PHYSICAL ESP32 HARDWARE NODES -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      
+      <!-- CARD 1: NODE 1 (DESK TX - BEACON 1) -->
+      <div id="card-node_1" class="bg-slate-900/90 backdrop-blur-md border-2 card-idle rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between">
+        <div>
+          <!-- Card Header -->
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 text-[11px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-md">
+                  Node 1 • Hub Side Tx
+                </span>
+                <span class="px-2 py-0.5 text-[11px] font-mono bg-slate-800 text-slate-300 rounded-md">
+                  Ch 1 (2.412 GHz)
+                </span>
+                <span id="card-pos-node_1" class="px-2 py-0.5 text-[11px] font-mono bg-cyan-950 text-cyan-400 rounded-md border border-cyan-800/40">
+                  Pos: [0.68m, 0.58m]
+                </span>
+              </div>
+              <h2 class="text-xl font-bold text-white mt-1.5 flex items-center gap-2">
+                <i class="fa-solid fa-microchip text-cyan-400 text-base"></i>
+                ESP32 Beacon 1 (Hub Side)
+              </h2>
+              <p class="text-xs text-slate-400 font-medium">
+                SSID: <span class="text-cyan-300 font-mono">Zone_1_Tx</span> • Hardware GPIO 2 (LED Indicator)
+              </p>
+            </div>
+
+            <!-- Virtual Physical LED & Active Pill -->
+            <div class="flex flex-col items-end gap-2">
+              <div class="flex items-center gap-2.5 bg-slate-950/90 px-3 py-2 rounded-xl border border-slate-800">
+                <div id="led-node_1" class="w-7 h-7 rounded-full led-bulb led-off"></div>
+                <div class="text-right">
+                  <div class="text-[10px] font-mono uppercase text-slate-400">Cyan LED</div>
+                  <div id="status-node_1" class="text-xs font-mono font-bold text-slate-400">○ IDLE</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Telemetry Metrics Grid -->
+          <div class="grid grid-cols-4 gap-1.5 bg-slate-950/70 rounded-xl p-2 border border-slate-800/80 mb-3 font-mono">
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Var (σ²)</div>
+              <div id="var-node_1" class="text-sm sm:text-base font-bold text-cyan-300">0.0000</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Live RSSI</div>
+              <div id="rssi-node_1" class="text-sm sm:text-base font-bold text-slate-200">-65 dBm</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Base RSSI</div>
+              <div id="base-node_1" class="text-sm sm:text-base font-bold text-slate-400">-65 dBm</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Drop (Δ)</div>
+              <div id="delta-node_1" class="text-sm sm:text-base font-bold text-emerald-400">0.0 dB</div>
+            </div>
+          </div>
+
+          <!-- Hold Timer Bar -->
+          <div class="mb-3">
+            <div class="flex justify-between text-[11px] font-mono text-slate-400 mb-1">
+              <span>Hold Timer (1.2s Auto-Shutoff)</span>
+              <span id="hold-text-node_1">0.0s</span>
+            </div>
+            <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <div id="hold-bar-node_1" class="h-full bg-gradient-to-r from-cyan-500 to-sky-300 transition-all duration-100" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Sparkline Canvas (4-Sample Rolling Variance vs Threshold) -->
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2 mb-3">
+            <div class="flex justify-between items-center text-[10px] font-mono text-slate-400 mb-1">
+              <span>Variance Stream vs Threshold</span>
+              <span id="samples-node_1" class="text-cyan-400">Window: 0/4</span>
+            </div>
+            <canvas id="spark-node_1" class="w-full h-20 block"></canvas>
+          </div>
+        </div>
+
+        <!-- Interactive Threshold Slider -->
+        <div class="bg-slate-950/90 rounded-xl p-2.5 border border-slate-800/90">
+          <div class="flex justify-between items-center text-xs font-mono mb-1.5">
+            <span class="text-slate-400"><i class="fa-solid fa-sliders mr-1 text-cyan-400"></i>Variance Threshold:</span>
+            <div class="flex items-center gap-2">
+              <span id="thr-val-node_1" class="text-cyan-300 font-bold">0.0008</span>
+              <button onclick="resetThreshold('node_1', 0.0008)" class="text-[10px] px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded" title="Reset to default 0.0008">Reset</button>
+            </div>
+          </div>
+          <input id="slider-node_1" type="range" min="0.0001" max="0.0050" step="0.0001" value="0.0008" oninput="updateThreshold('node_1', this.value)" class="w-full" />
+        </div>
+      </div>
+
+      <!-- CARD 2: NODE 2 (WINDOW TX - BEACON 2) -->
+      <div id="card-node_2" class="bg-slate-900/90 backdrop-blur-md border-2 card-idle rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between">
+        <div>
+          <!-- Card Header -->
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-md">
+                  Node 2 • Far Side Tx
+                </span>
+                <span class="px-2 py-0.5 text-[11px] font-mono bg-slate-800 text-slate-300 rounded-md">
+                  Ch 6 (2.437 GHz)
+                </span>
+                <span id="card-pos-node_2" class="px-2 py-0.5 text-[11px] font-mono bg-amber-950 text-amber-400 rounded-md border border-amber-800/40">
+                  Pos: [0.68m, 0.12m]
+                </span>
+              </div>
+              <h2 class="text-xl font-bold text-white mt-1.5 flex items-center gap-2">
+                <i class="fa-solid fa-microchip text-amber-400 text-base"></i>
+                ESP32 Beacon 2 (Far Side)
+              </h2>
+              <p class="text-xs text-slate-400 font-medium">
+                SSID: <span class="text-amber-300 font-mono">Zone_2_Tx</span> • Hardware GPIO 4 (LED Indicator)
+              </p>
+            </div>
+
+            <!-- Virtual Physical LED & Active Pill -->
+            <div class="flex flex-col items-end gap-2">
+              <div class="flex items-center gap-2.5 bg-slate-950/90 px-3 py-2 rounded-xl border border-slate-800">
+                <div id="led-node_2" class="w-7 h-7 rounded-full led-bulb led-off"></div>
+                <div class="text-right">
+                  <div class="text-[10px] font-mono uppercase text-slate-400">Amber LED</div>
+                  <div id="status-node_2" class="text-xs font-mono font-bold text-slate-400">○ IDLE</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Telemetry Metrics Grid -->
+          <div class="grid grid-cols-4 gap-1.5 bg-slate-950/70 rounded-xl p-2 border border-slate-800/80 mb-3 font-mono">
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Var (σ²)</div>
+              <div id="var-node_2" class="text-sm sm:text-base font-bold text-amber-300">0.0000</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Live RSSI</div>
+              <div id="rssi-node_2" class="text-sm sm:text-base font-bold text-slate-200">-62 dBm</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Base RSSI</div>
+              <div id="base-node_2" class="text-sm sm:text-base font-bold text-slate-400">-62 dBm</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Drop (Δ)</div>
+              <div id="delta-node_2" class="text-sm sm:text-base font-bold text-emerald-400">0.0 dB</div>
+            </div>
+          </div>
+
+          <!-- Hold Timer Bar -->
+          <div class="mb-3">
+            <div class="flex justify-between text-[11px] font-mono text-slate-400 mb-1">
+              <span>Hold Timer (1.2s Auto-Shutoff)</span>
+              <span id="hold-text-node_2">0.0s</span>
+            </div>
+            <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <div id="hold-bar-node_2" class="h-full bg-gradient-to-r from-amber-500 to-yellow-300 transition-all duration-100" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Sparkline Canvas -->
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2 mb-3">
+            <div class="flex justify-between items-center text-[10px] font-mono text-slate-400 mb-1">
+              <span>Variance Stream vs Threshold</span>
+              <span id="samples-node_2" class="text-amber-400">Window: 0/4</span>
+            </div>
+            <canvas id="spark-node_2" class="w-full h-20 block"></canvas>
+          </div>
+        </div>
+
+        <!-- Interactive Threshold Slider -->
+        <div class="bg-slate-950/90 rounded-xl p-2.5 border border-slate-800/90">
+          <div class="flex justify-between items-center text-xs font-mono mb-1.5">
+            <span class="text-slate-400"><i class="fa-solid fa-sliders mr-1 text-amber-400"></i>Variance Threshold:</span>
+            <div class="flex items-center gap-2">
+              <span id="thr-val-node_2" class="text-amber-300 font-bold">0.0008</span>
+              <button onclick="resetThreshold('node_2', 0.0008)" class="text-[10px] px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded" title="Reset to default 0.0008">Reset</button>
+            </div>
+          </div>
+          <input id="slider-node_2" type="range" min="0.0001" max="0.0050" step="0.0001" value="0.0008" oninput="updateThreshold('node_2', this.value)" class="w-full" />
+        </div>
+      </div>
+
+      <!-- CARD 3: NODE 3 (BASE RECEIVER - USB COM8) -->
+      <div id="card-node_3" class="bg-slate-900/90 backdrop-blur-md border-2 card-idle rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between relative overflow-hidden">
+        <div>
+          <!-- Card Header -->
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 text-[11px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-md">
+                  Node 3 • Base Rx Hub
+                </span>
+                <span class="px-2 py-0.5 text-[11px] font-mono bg-slate-800 text-slate-300 rounded-md">
+                  COM11 @ 115200
+                </span>
+                <span id="card-pos-node_3" class="px-2 py-0.5 text-[11px] font-mono bg-rose-950 text-rose-400 rounded-md border border-rose-800/40">
+                  Pos: [0.15m, 0.35m]
+                </span>
+              </div>
+              <div class="flex items-center gap-2 mt-1.5">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-tower-broadcast text-rose-400 text-base"></i>
+                  ESP32 Receiver (Center-Left Base)
+                </h2>
+                <!-- Detection Indicator Badge -->
+                <span id="breach-badge" class="hidden px-2 py-0.5 text-[10px] font-mono font-extrabold bg-rose-600 text-white rounded-md shadow-lg animate-breach">
+                  ⚡ MOTION DETECTED
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 font-medium">
+                USB Hardware Receiver &amp; GPIO 5 Actuator Hub
+              </p>
+            </div>
+
+            <!-- Virtual Physical LED & Active Pill -->
+            <div class="flex flex-col items-end gap-2">
+              <div class="flex items-center gap-2.5 bg-slate-950/90 px-3 py-2 rounded-xl border border-slate-800">
+                <div id="led-node_3" class="w-7 h-7 rounded-full led-bulb led-off"></div>
+                <div class="text-right">
+                  <div class="text-[10px] font-mono uppercase text-slate-400">Red LED</div>
+                  <div id="status-node_3" class="text-xs font-mono font-bold text-slate-400">○ ARMED</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Telemetry Metrics Grid -->
+          <div class="grid grid-cols-4 gap-1.5 bg-slate-950/70 rounded-xl p-2 border border-slate-800/80 mb-3 font-mono">
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Var (σ²)</div>
+              <div id="var-node_3" class="text-sm sm:text-base font-bold text-rose-400">0.0000</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Live RSSI</div>
+              <div id="rssi-node_3" class="text-sm sm:text-base font-bold text-slate-200">-58 dBm</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Base RSSI</div>
+              <div id="base-node_3" class="text-sm sm:text-base font-bold text-slate-400">-58 dBm</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-400 uppercase">Drop (Δ)</div>
+              <div id="delta-node_3" class="text-sm sm:text-base font-bold text-emerald-400">0.0 dB</div>
+            </div>
+          </div>
+
+          <!-- Hold Timer Bar -->
+          <div class="mb-3">
+            <div class="flex justify-between text-[11px] font-mono text-slate-400 mb-1">
+              <span>Hold Timer (1.2s Latch)</span>
+              <span id="hold-text-node_3">0.0s</span>
+            </div>
+            <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <div id="hold-bar-node_3" class="h-full bg-gradient-to-r from-rose-600 to-red-400 transition-all duration-100" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Sparkline Canvas -->
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2 mb-3">
+            <div class="flex justify-between items-center text-[10px] font-mono text-slate-400 mb-1">
+              <span>Variance Stream vs Threshold</span>
+              <span id="samples-node_3" class="text-rose-400">Window: 0/4</span>
+            </div>
+            <canvas id="spark-node_3" class="w-full h-20 block"></canvas>
+          </div>
+        </div>
+
+        <!-- Interactive Threshold Slider -->
+        <div class="bg-slate-950/90 rounded-xl p-2.5 border border-slate-800/90">
+          <div class="flex justify-between items-center text-xs font-mono mb-1.5">
+            <span class="text-slate-400"><i class="fa-solid fa-sliders mr-1 text-rose-400"></i>Variance Threshold:</span>
+            <div class="flex items-center gap-2">
+              <span id="thr-val-node_3" class="text-rose-300 font-bold">0.0008</span>
+              <button onclick="resetThreshold('node_3', 0.0008)" class="text-[10px] px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded" title="Reset to default 0.0008">Reset</button>
+            </div>
+          </div>
+          <input id="slider-node_3" type="range" min="0.0001" max="0.0050" step="0.0001" value="0.0008" oninput="updateThreshold('node_3', this.value)" class="w-full" />
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 2. AI MODEL LIVE TELEMETRY & 128-DIM CONTRASTIVE EMBEDDING BAR -->
+    <section class="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl font-mono text-xs">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-2.5 mb-3">
+        <div class="flex items-center gap-2.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+          <span class="font-bold text-white text-sm">ruvnet/wifi-densepose-pretrained • Live Contrastive AI Engine</span>
+          <span class="text-slate-500">|</span>
+          <span class="text-slate-400">Arch: <strong class="text-cyan-300">8 &rarr; 64 &rarr; 128 InfoNCE Encoder</strong></span>
+        </div>
+        <div class="flex items-center gap-4 text-[11px]">
+          <div>Presence Prob: <strong id="ai-presence-pct" class="text-emerald-400">0.0%</strong></div>
+          <div>Contrastive Shift: <strong id="ai-contrast-val" class="text-sky-300">0.0000</strong></div>
+          <div>Target Loc: <strong id="ai-loc-coords" class="text-amber-300">No Target (Quiet)</strong></div>
+        </div>
+      </div>
+
+      <!-- Embedding & Presence Gauges Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+        <!-- Calibrated Presence Meter -->
+        <div class="md:col-span-4 bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
+          <div class="flex justify-between items-center text-[11px] mb-1">
+            <span class="text-slate-400">Calibrated Human Presence Head</span>
+            <span id="ai-presence-label" class="font-bold text-slate-400">STANDBY</span>
+          </div>
+          <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+            <div id="ai-presence-bar" class="h-full bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 transition-all duration-150" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- 8-Sample Slice of the 128-Dim Embedding Vector -->
+        <div class="md:col-span-8 bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
+          <div class="flex justify-between items-center text-[11px] mb-1.5">
+            <span class="text-slate-400">128-Dim L2-Normalized Spatial Representation (Vector Sample z[0..7])</span>
+            <span class="text-slate-500 text-[10px]">||z||₂ = 1.000</span>
+          </div>
+          <div id="ai-embedding-bars" class="flex items-center gap-1.5 h-6">
+            <!-- Populated dynamically by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. MAIN SPLIT: 2D ROOM WI-FI MAP & 3D SPATIAL RADAR + TELEMETRY CONSOLE -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+      
+      <!-- LEFT/CENTER PANEL (7 cols): Dual 2D Room Wi-Fi Map & 3D Spatial Radar -->
+      <div class="lg:col-span-7 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-xl">
+        
+        <!-- Top Human Detection & Occupancy Counter Bar (v2.1 SOTA) -->
+        <div class="mb-3 p-2.5 bg-slate-950/90 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-2.5 shadow-inner">
+          <div class="flex items-center gap-2.5">
+            <span class="relative flex h-3 w-3">
+              <span id="occupancy-ping" class="hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span id="occupancy-dot" class="relative inline-flex rounded-full h-3 w-3 bg-slate-500"></span>
+            </span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold">Humans Detected:</span>
+              <span id="occupancy-count-badge" class="px-2.5 py-0.5 text-xs font-mono font-extrabold rounded-md bg-slate-800 text-slate-400 border border-slate-700">
+                0 HUMANS (EMPTY)
+              </span>
+            </div>
+            <span id="occupancy-mode-pill" class="hidden sm:inline-block text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+              STANDBY
+            </span>
+          </div>
+
+          <!-- Quick Simulation Buttons: 0, 1, 2 Humans -->
+          <div class="flex items-center gap-1.5 font-mono text-xs">
+            <span class="text-[10px] text-slate-500 uppercase font-bold mr-0.5">Mode:</span>
+            <button id="btn-count-auto" onclick="simulatePersonCount(null)" class="px-2.5 py-1 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/60 transition font-semibold text-[11px] flex items-center gap-1.5 ring-1 ring-cyan-400 font-bold" title="Live Hardware Auto-Detection (Hands, Steel/Water Bottle, Humans)">
+              <i class="fa-solid fa-satellite-dish text-cyan-400"></i> Live Auto RF
+            </button>
+            <button id="btn-count-0" onclick="simulatePersonCount(0)" class="px-2.5 py-1 rounded-lg bg-slate-850 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/70 transition font-semibold text-[11px] flex items-center gap-1.5" title="Simulate 0 Humans (Empty Room)">
+              <i class="fa-solid fa-user-slash text-slate-400"></i> 0 Humans (Empty)
+            </button>
+            <button id="btn-count-1" onclick="simulatePersonCount(1)" class="px-2.5 py-1 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-600/50 transition font-semibold text-[11px] flex items-center gap-1.5" title="Simulate 1 Human Tracked">
+              <i class="fa-solid fa-user text-emerald-400"></i> 1 Human (Track)
+            </button>
+            <button id="btn-count-2" onclick="simulatePersonCount(2)" class="px-2.5 py-1 rounded-lg bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 border border-cyan-600/50 transition font-semibold text-[11px] flex items-center gap-1.5" title="Simulate 2 Humans (Multi-Zone Tracking)">
+              <i class="fa-solid fa-user-group text-cyan-400"></i> 2 Humans (Multi-Zone)
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-satellite-dish text-cyan-400"></i>
+                <span id="view-title">2D Tabletop RF Grid &amp; Multi-Static Object Locator</span>
+              </h3>
+              <span class="px-2 py-0.5 text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-md" id="view-badge">
+                100 cm × 70 cm Table Surface
+              </span>
+            </div>
+            <p id="canvas-instruction" class="text-xs text-slate-400 mt-0.5">
+              Live multi-static RF tomography mesh connecting Hub Node 1 (Tx), Far Node 2 (Tx), and Center-Left Base Rx. Place any object on the table to detect its exact (X, Y) centimeter coordinates.
+            </p>
+          </div>
+
+          <!-- Tab Switcher between 2D Room Map and 3D DensePose Radar -->
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button id="tab-btn-2d" onclick="switchVisualizerTab('2d')" class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg transition bg-cyan-600 text-white shadow flex items-center gap-1.5">
+                <i class="fa-solid fa-map"></i> 2D Table Map
+              </button>
+              <button id="tab-btn-3d" onclick="switchVisualizerTab('3d')" class="px-2.5 py-1 text-xs font-mono font-semibold rounded-lg transition text-slate-400 hover:text-white hover:bg-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid fa-cube text-slate-400"></i> 3D Radar
+              </button>
+            </div>
+
+            <!-- 3D Camera Quick Presets (Shown when 3D tab is active) -->
+            <div id="cam-preset-bar" class="hidden flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-xl border border-slate-800 text-[11px] font-mono">
+              <span class="text-slate-500 mr-0.5">Cam:</span>
+              <button onclick="setCameraView('iso')" class="px-1.5 py-0.5 bg-slate-850 hover:bg-slate-750 text-slate-300 hover:text-white rounded border border-slate-700/60" title="Isometric Perspective">Iso</button>
+              <button onclick="setCameraView('top')" class="px-1.5 py-0.5 bg-slate-850 hover:bg-slate-750 text-slate-300 hover:text-white rounded border border-slate-700/60" title="Top-Down Plan">Top</button>
+              <button onclick="setCameraView('side')" class="px-1.5 py-0.5 bg-slate-850 hover:bg-slate-750 text-slate-300 hover:text-white rounded border border-slate-700/60" title="Side Elevation">Side</button>
+              <button onclick="resetCameraView()" class="px-1.5 py-0.5 bg-slate-850 hover:bg-slate-750 text-cyan-400 rounded border border-slate-700/60" title="Reset View"><i class="fa-solid fa-arrows-rotate"></i></button>
+            </div>
+
+            <!-- Quick Object Location Presets -->
+            <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-mono">
+              <span class="text-cyan-400 text-[10px] uppercase font-bold px-1.5 flex items-center gap-1">
+                <i class="fa-solid fa-bullseye"></i> Locate:
+              </span>
+              <button onclick="setPersonLocation(0.42, 0.35, 'node_1')" class="px-2 py-0.5 bg-slate-850 hover:bg-cyan-900/60 hover:text-cyan-300 text-slate-300 rounded font-semibold transition text-[11px]" title="Locate object in Table Center (X: 42cm, Y: 35cm)">📍 Center</button>
+              <button onclick="setPersonLocation(0.55, 0.50, 'node_1')" class="px-2 py-0.5 bg-slate-850 hover:bg-cyan-900/60 hover:text-cyan-300 text-slate-300 rounded font-semibold transition text-[11px]" title="Locate object near Hub Node 1 (X: 55cm, Y: 50cm)">📍 Hub (N1)</button>
+              <button onclick="setPersonLocation(0.55, 0.20, 'node_2')" class="px-2 py-0.5 bg-slate-850 hover:bg-amber-900/60 hover:text-amber-300 text-slate-300 rounded font-semibold transition text-[11px]" title="Locate object near Far Node 2 (X: 55cm, Y: 20cm)">📍 Far (N2)</button>
+              <button onclick="setPersonLocation(0.25, 0.35, 'node_3')" class="px-2 py-0.5 bg-slate-850 hover:bg-rose-900/60 hover:text-rose-300 text-slate-300 rounded font-semibold transition text-[11px]" title="Locate object near Base Rx (X: 25cm, Y: 35cm)">📍 Base Rx</button>
+            </div>
+
+            <!-- Quick Wave Pulse Buttons -->
+            <div class="flex items-center gap-1.5">
+              <button onclick="triggerNodePulse('node_1')" class="px-2 py-1 text-xs font-mono bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/30 rounded-lg transition" title="Inject RF fluctuation near Node 1">
+                Wave Hub
+              </button>
+              <button onclick="triggerNodePulse('node_2')" class="px-2 py-1 text-xs font-mono bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-500/30 rounded-lg transition" title="Inject RF fluctuation near Node 2">
+                Wave Far
+              </button>
+              <button onclick="triggerNodePulse('node_3')" class="px-2 py-1 text-xs font-mono bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-500/30 rounded-lg transition" title="Inject RF fluctuation near Rx Base">
+                Pulse Rx
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2D Room Wi-Fi Map Viewport Container -->
+        <div id="room-map-viewport-wrap" class="relative w-full h-[380px] sm:h-[430px] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden select-none">
+          <canvas id="room-map-canvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+          <!-- Floating HUD: Tabletop Coordinates & Localization Tracker (Top Left) -->
+          <div class="absolute top-2.5 left-2.5 bg-slate-950/85 backdrop-blur-md border border-slate-800/90 rounded-xl p-2.5 shadow-xl font-mono text-xs pointer-events-none">
+            <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5 mb-1.5">
+              <span class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-location-crosshairs text-cyan-400"></i> Tabletop Object Tracking
+              </span>
+              <span id="hud-active-node-badge" class="px-1.5 py-0.2 text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 rounded">
+                No Object Detected
+              </span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-[11px] mb-1">
+              <div><span class="text-slate-500">Table X:</span> <span id="hud-room-x" class="text-cyan-300 font-bold">--</span></div>
+              <div><span class="text-slate-500">Table Y:</span> <span id="hud-room-y" class="text-emerald-300 font-bold">--</span></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-850">
+              <span>Confidence: <strong id="hud-room-conf" class="text-emerald-300">0%</strong></span>
+              <span id="hud-target-subtext" class="text-slate-500">RF Radar</span>
+            </div>
+          </div>
+
+          <!-- Floating Vitals HUD: Top Right Corner (Only shown if accurate data is present) -->
+          <div id="vitals-2d-hud" class="hidden absolute top-2.5 right-2.5 bg-slate-950/90 backdrop-blur-md border border-slate-800/90 rounded-xl p-2.5 shadow-xl font-mono text-xs pointer-events-none transition-all duration-300">
+            <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-1 mb-1.5 text-[10px] uppercase font-bold text-slate-400">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-heart-pulse text-rose-500 animate-pulse"></i> Vital Signs
+              </span>
+              <span class="px-1.5 py-0.2 text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded">
+                Accurate
+              </span>
+            </div>
+            <div class="flex items-center gap-4 text-xs">
+              <div>
+                <span class="text-[9px] text-slate-500 block font-semibold">HEART RATE</span>
+                <span class="font-extrabold text-rose-400 text-sm" id="hud-2d-hr">--</span> <span class="text-[9px] text-slate-500">BPM</span>
+              </div>
+              <div class="border-l border-slate-800 pl-3">
+                <span class="text-[9px] text-slate-500 block font-semibold">BREATHING</span>
+                <span class="font-extrabold text-cyan-400 text-sm" id="hud-2d-rr">--</span> <span class="text-[9px] text-slate-500">BPM</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Calibration Overlay Modal (30s Free Space Baseline) -->
+          <div id="calibration-overlay" class="hidden absolute inset-0 bg-slate-950/92 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30 transition-all select-none">
+            <div class="w-16 h-16 rounded-2xl bg-cyan-500/15 border border-cyan-400/60 flex items-center justify-center mb-3 shadow-lg shadow-cyan-500/20">
+              <i class="fa-solid fa-compass-drafting text-cyan-300 text-3xl animate-spin"></i>
+            </div>
+            <h4 class="text-xl font-bold text-white tracking-wide">Recording 30s Free-Space Baseline</h4>
+            <div class="inline-flex items-center gap-2 mt-1 mb-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>KEEP TABLE &amp; ROOM CLEAR OF HUMANS &amp; MOVEMENT</span>
+            </div>
+            <p class="text-xs text-slate-300 max-w-lg mt-1 mb-4 leading-relaxed font-mono">
+              Recording 30.0 seconds of ambient free-space RF signal strength across all 3 nodes to set the baseline threshold. Once set, human body RF absorption (signal drop) will detect presence even if you stay completely still.
+            </p>
+            <div class="w-full max-w-md h-3.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/80 mb-2 p-0.5 shadow-inner">
+              <div id="calibration-bar" class="h-full rounded-full bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 transition-all duration-150 shadow-sm shadow-cyan-400/50" style="width: 0%"></div>
+            </div>
+            <div class="flex items-center justify-between w-full max-w-md text-xs font-mono mb-4">
+              <span id="calibration-pct" class="text-slate-400">0% complete</span>
+              <span id="calibration-timer" class="text-cyan-300 font-bold text-sm">30.0s remaining</span>
+            </div>
+            <!-- Live Sampling Preview per Node -->
+            <div class="grid grid-cols-3 gap-2 w-full max-w-md mb-4 font-mono text-xs">
+              <div class="bg-slate-900/80 border border-cyan-500/30 p-2 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block">NODE 1 (HUB)</span>
+                <span id="calib-n1-rssi" class="font-bold text-cyan-300">-- dBm</span>
+              </div>
+              <div class="bg-slate-900/80 border border-amber-500/30 p-2 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block">NODE 2 (FAR)</span>
+                <span id="calib-n2-rssi" class="font-bold text-amber-300">-- dBm</span>
+              </div>
+              <div class="bg-slate-900/80 border border-rose-500/30 p-2 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block">NODE 3 (RX)</span>
+                <span id="calib-n3-rssi" class="font-bold text-rose-300">-- dBm</span>
+              </div>
+            </div>
+            <button onclick="cancelBaselineCalibration()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition border border-slate-700">
+              <i class="fa-solid fa-xmark mr-1.5"></i>Cancel Calibration
+            </button>
+          </div>
+        </div>
+
+        <!-- 3D WebGL Spatial Radar Viewport Container (Tab 2) -->
+        <div id="three-viewport-wrap" class="hidden relative w-full h-[380px] sm:h-[430px] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden select-none">
+          <canvas id="three-canvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+
+          <!-- Floating 3D HUD: Top Left -->
+          <div class="absolute top-2.5 left-2.5 bg-slate-950/85 backdrop-blur-md border border-slate-800/90 rounded-xl p-2.5 shadow-xl font-mono text-xs max-w-[280px] pointer-events-none">
+            <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5 mb-1.5">
+              <span class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-crosshairs text-cyan-400"></i> RuView 3D DensePose
+              </span>
+              <span id="hud-3d-node-badge" class="px-1.5 py-0.2 text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 rounded">
+                Standby
+              </span>
+            </div>
+            <div class="grid grid-cols-3 gap-1 text-[11px] mb-1">
+              <div><span class="text-slate-500">X:</span> <span id="hud-pos-x" class="text-cyan-300 font-bold">--</span></div>
+              <div><span class="text-slate-500">Y:</span> <span id="hud-pos-y" class="text-emerald-300 font-bold">0.00</span></div>
+              <div><span class="text-slate-500">Z:</span> <span id="hud-pos-z" class="text-amber-300 font-bold">--</span></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-850">
+              <span>Confidence: <strong id="hud-conf-val" class="text-emerald-300">0.0%</strong></span>
+              <span class="text-slate-500">17 Keypoints</span>
+            </div>
+          </div>
+
+          <!-- Floating 3D HUD: Top Right (Through-Wall Vitals) -->
+          <div class="absolute top-2.5 right-2.5 bg-slate-950/85 backdrop-blur-md border border-slate-800/90 rounded-xl p-2.5 shadow-xl font-mono text-xs pointer-events-none">
+            <div class="flex items-center gap-1.5 border-b border-slate-800 pb-1 mb-1.5 text-[10px] uppercase font-bold text-slate-400">
+              <i class="fa-solid fa-heart-pulse text-rose-500 animate-pulse"></i> Vital Signs DSP
+            </div>
+            <div class="flex items-center gap-3 text-xs mb-1">
+              <div>
+                <span class="text-[10px] text-slate-500 block">RESPIRATION</span>
+                <span class="font-bold text-cyan-300 text-sm" id="hud-vitals-rr">--</span> <span class="text-[9px] text-slate-500">BPM</span>
+              </div>
+              <div class="w-[1px] h-6 bg-slate-800"></div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">HEART RATE</span>
+                <span class="font-bold text-rose-400 text-sm" id="hud-vitals-hr">--</span> <span class="text-[9px] text-slate-500">BPM</span>
+              </div>
+            </div>
+            <div class="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span id="hud-vitals-state">Standby • No Target</span>
+            </div>
+          </div>
+
+          <!-- Floating 3D HUD: Bottom 56-Subcarrier OFDM CSI Spectrum -->
+          <div class="absolute bottom-2.5 left-2.5 right-2.5 bg-slate-950/85 backdrop-blur-md border border-slate-800/90 rounded-xl px-3 py-1.5 shadow-xl pointer-events-none">
+            <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 mb-1">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-chart-simple text-cyan-400"></i>
+                <span>56-Subcarrier OFDM CSI Channel Frequency Response</span>
+              </span>
+              <span class="text-slate-500 hidden sm:inline">Left-Drag: Rotate • Scroll: Zoom • Right-Drag: Pan</span>
+            </div>
+            <div id="subcarrier-bars" class="flex items-end gap-[2px] h-7 w-full overflow-hidden"></div>
+          </div>
+        </div>
+
+        <!-- Room RF Mesh Legend Footer -->
+        <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400">
+          <div id="rig-legend" class="flex flex-wrap items-center gap-4"></div>
+          <div class="text-slate-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-shield-halved text-cyan-400"></i>
+            <span>Multi-Static RF Tomography &amp; Zero-Camera Spatial Map</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT PANEL (5 cols): Live Serial Protocol & Event Telemetry Console -->
+      <div class="lg:col-span-5 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-xl">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-terminal text-emerald-400"></i>
+                Live Hardware Serial &amp; Controller Stream
+              </h3>
+              <p class="text-xs text-slate-400 font-mono mt-0.5">
+                COM8 @ 115200 baud • Protocol: <span class="text-emerald-300">&lt;LED:PIN:STATE&gt;</span>
+              </p>
+            </div>
+
+            <!-- Stream Filter Pill -->
+            <div class="flex items-center gap-1.5">
+              <label class="flex items-center gap-1.5 text-xs font-mono text-slate-300 cursor-pointer bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                <input id="chk-raw-json" type="checkbox" class="accent-cyan-400 rounded" />
+                <span>Show Raw 10Hz JSON</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Hardware Action Buttons -->
+          <div class="grid grid-cols-3 gap-2 mb-3">
+            <button onclick="runSelfTestFlash()" class="px-2.5 py-2 rounded-xl bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/40 text-emerald-300 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-bolt"></i>
+              <span>500ms LED Test</span>
+            </button>
+            <button onclick="startBaselineCalibration(30)" class="px-2.5 py-2 rounded-xl bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-500/40 text-cyan-300 text-xs font-semibold transition flex items-center justify-center gap-1.5" title="Clear table and record 30s free-space baseline">
+              <i class="fa-solid fa-compass-drafting"></i>
+              <span>Calibrate 30s Base</span>
+            </button>
+            <button onclick="sendPingCommand()" class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-satellite-dish"></i>
+              <span>Send &lt;PING&gt;</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Terminal Output Stream -->
+        <div id="serial-log" class="w-full h-[290px] sm:h-[340px] bg-slate-950 rounded-xl border border-slate-800 p-3 font-mono text-xs overflow-y-auto space-y-1.5 select-text">
+          <!-- Populated dynamically by JS -->
+        </div>
+
+        <!-- Console Footer -->
+        <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs font-mono text-slate-400">
+          <div>
+            TX Packets: <span id="tx-count" class="text-emerald-400 font-bold">0</span> •
+            RX Frames: <span id="rx-count" class="text-cyan-400 font-bold">0</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="clearSerialLog()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+              <i class="fa-solid fa-trash-can mr-1"></i>Clear Log
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- JAVASCRIPT ENGINE: REAL ROOM MAP, MULTI-STATIC TOMOGRAPHY & THREE.JS  -->
+  <!-- ===================================================================== -->
+  <script>
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1. ROOM GEOMETRY & 3-NODE HARDWARE STATE
+    // ─────────────────────────────────────────────────────────────────────────
+    const ROOM = {
+      name: "Tabletop Sensing Grid",
+      width_m: 1.0,
+      length_m: 0.7,
+      height_m: 0.5,
+    };
+
+    const WINDOW_SIZE = 4;
+    const HOLD_TIME_S = 1.2;
+
+    const NODES = {
+      node_1: {
+        name: 'node_1',
+        label: 'V1: ESP32-C3 #1 [COM6]',
+        role: 'Y-Delta Vertex V1 (Tx Apex)',
+        ledPin: 2,
+        ssid: 'Zone_1_Tx',
+        channel: 6,
+        pos_m: [0.50, 0.05],
+        threshold: 0.0008,
+        colorHex: '#22d3ee',
+        ledClass: 'led-on-cyan',
+        cardClass: 'card-active-cyan',
+        isActive: false,
+        lastTriggered: 0,
+        lastAmplitude: 0.40,
+        lastRssi: -65,
+        history: [],
+        varHistory: [],
+      },
+      node_2: {
+        name: 'node_2',
+        label: 'V2: ESP32-C3 #2 [COM7]',
+        role: 'Y-Delta Vertex V2 (Tx Corner)',
+        ledPin: 4,
+        ssid: 'Zone_2_Tx',
+        channel: 6,
+        pos_m: [0.80, 0.57],
+        threshold: 0.0008,
+        colorHex: '#fbbf24',
+        ledClass: 'led-on-amber',
+        cardClass: 'card-active-amber',
+        isActive: false,
+        lastTriggered: 0,
+        lastAmplitude: 0.40,
+        lastRssi: -62,
+        history: [],
+        varHistory: [],
+      },
+      node_3: {
+        name: 'node_3',
+        label: 'Standard ESP32 [COM11]',
+        role: 'Rx Hub & Actuator (Tx/Rx Corner)',
+        ledPin: 5,
+        ssid: 'Zone_3_Tx',
+        channel: 6,
+        pos_m: [0.20, 0.57],
+        threshold: 0.0008,
+        colorHex: '#f87171',
+        ledClass: 'led-on-red',
+        cardClass: 'card-active-red',
+        isActive: false,
+        lastTriggered: 0,
+        lastAmplitude: 0.40,
+        lastRssi: -58,
+        history: [],
+        varHistory: [],
+      },
+      node_4: {
+        name: 'node_4',
+        label: 'Hotspot Centroid Anchor',
+        role: 'Centroid Reference Hotspot',
+        ledPin: -1,
+        ssid: 'Laptop_Hotspot',
+        channel: 6,
+        pos_m: [0.50, 0.40],
+        threshold: 0.0008,
+        colorHex: '#818cf8',
+        ledClass: 'led-on-cyan',
+        cardClass: 'card-active-cyan',
+        isActive: false,
+        lastTriggered: 0,
+        lastAmplitude: 0.40,
+        lastRssi: -45,
+        history: [],
+        varHistory: [],
+      }
+    };
+
+    // The legend used to state three fixed positions from a 5m x 4m room that this rig
+    // does not have. It now reads whatever geometry NODES actually holds.
+    function renderRigLegend() {
+      const el = document.getElementById('rig-legend');
+      if (!el) return;
+      el.textContent = '';
+      Object.keys(NODES).forEach(nid => {
+        const nd = NODES[nid];
+        if (!nd || !Array.isArray(nd.pos_m)) return;
+        const span = document.createElement('span');
+        span.className = 'flex items-center gap-1.5';
+        const dot = document.createElement('span');
+        dot.className = 'w-2.5 h-2.5 rounded-full inline-block';
+        dot.style.backgroundColor = nd.colorHex || '#22d3ee';
+        span.appendChild(dot);
+        span.appendChild(document.createTextNode(
+          `${nid.replace('node_', 'Node ')}: ${nd.label || ''} [${nd.pos_m[0].toFixed(2)}m, ${nd.pos_m[1].toFixed(2)}m]`
+        ));
+        el.appendChild(span);
+      });
+    }
+    renderRigLegend();
+
+    // Assigned by the Three.js bootstrap; converts room metres to scene units.
+    let roomToScene3D = null;
+
+    // Towers are built once, so they have to be moved when the controller's real rig
+    // geometry arrives instead of keeping the coordinates shipped in this file.
+    function syncRigGeometry() {
+      renderRigLegend();
+      if (!roomToScene3D) return;
+      Object.keys(NODES).forEach(nid => {
+        const nd = NODES[nid];
+        const group = beaconNodes[nid];
+        if (!nd || !Array.isArray(nd.pos_m) || !group) return;
+        const [sx, sz] = roomToScene3D(nd.pos_m[0], nd.pos_m[1]);
+        group.position.x = sx;
+        group.position.z = sz;
+      });
+    }
+
+    // Compatibility alias table for SSIDs and raw zone tags from firmware
+    const ALIAS_TO_NODE = {
+      'node_1': 'node_1',
+      'node_2': 'node_2',
+      'node_3': 'node_3',
+      'node_4': 'node_4',
+      'Zone_1_Tx': 'node_1',
+      'living_room': 'node_1',
+      'Zone_2_Tx': 'node_2',
+      'kitchen': 'node_2',
+      'Zone_3_Tx': 'node_3',
+      'Laptop_Hotspot': 'node_4',
+      'secure_room': 'node_3',
+      'Zone_3_Rx': 'node_3'
+    };
+
+    let operatingMode = 'ws'; // Start in Live WebSocket mode
+    let txCount = 0;
+    let rxCount = 0;
+    let wsInstance = null;
+    let wsReconnectTimer = null;
+    let selfTestActive = false;
+    let calibrationActive = false;
+
+    // Real-Time Tabletop Target State in Meters [0..width_m, 0..length_m]
+    let hasTarget = false; // Start with no object detected until signal/data arrives
+    const targetState = {
+      roomX: 0.42,
+      roomY: 0.35,
+      smoothX: 0.42,
+      smoothY: 0.35,
+      targetX: 0.42,
+      targetY: 0.35,
+      smoothX2: 0.68,
+      smoothY2: 0.18,
+      targetX2: 0.68,
+      targetY2: 0.18,
+      isInside: false,
+      personCount: 0,
+      occupancyLabel: '0 HUMANS (EMPTY)',
+      persons: [],
+      velocity: 0.0,
+      activeNode: 'node_1',
+      confidence: 0.0,
+      presenceProb: 0.0,
+      contrastiveShift: 0.001,
+      deltaRssi: 0.0,
+      embeddingSample: [0, 0, 0, 0, 0, 0, 0, 0],
+      trail: [],
+      trail2: [],
+      heading: -Math.PI / 2
+    };
+
+    // Jitter-Free HUD Throttling State (10 Hz, 3mm deadband)
+    let lastHudUpdateTs = 0;
+    let lastDisplayedX = -999;
+    let lastDisplayedY = -999;
+    let lastDisplayed3DX = -999;
+    let lastDisplayed3DZ = -999;
+
+    function updateThrottledHUD(rx, ry, threeX, threeZ, force = false) {
+      const pCount = targetState.personCount !== undefined ? targetState.personCount : 0;
+      const hudX = document.getElementById('hud-room-x');
+      const hudY = document.getElementById('hud-room-y');
+      const px = document.getElementById('hud-pos-x');
+      const pz = document.getElementById('hud-pos-z');
+
+      if (pCount === 0 || !targetState.isInside || !hasTarget) {
+        if (hudX) hudX.textContent = '--';
+        if (hudY) hudY.textContent = '--';
+        if (px) px.textContent = '--';
+        if (pz) pz.textContent = '--';
+        const aiCoords = document.getElementById('ai-loc-coords');
+        if (aiCoords) aiCoords.textContent = 'Standby (Empty)';
+        lastDisplayedX = -999;
+        lastDisplayedY = -999;
+        lastDisplayed3DX = -999;
+        lastDisplayed3DZ = -999;
+        return;
+      }
+
+      const now = performance.now();
+      if (!force && (now - lastHudUpdateTs < 100)) {
+        return;
+      }
+
+      const isTableGrid = (ROOM.width_m <= 2.5);
+      
+      // 3mm deadband check on 2D room position
+      const dist2D = Math.hypot(rx - lastDisplayedX, ry - lastDisplayedY);
+      if (force || dist2D >= 0.003) {
+        lastDisplayedX = rx;
+        lastDisplayedY = ry;
+        if (hudX) hudX.textContent = isTableGrid ? `${(rx * 100).toFixed(1)} cm` : `${rx.toFixed(2)} m`;
+        if (hudY) hudY.textContent = isTableGrid ? `${(ry * 100).toFixed(1)} cm` : `${ry.toFixed(2)} m`;
+        const aiCoords = document.getElementById('ai-loc-coords');
+        if (aiCoords) {
+          aiCoords.textContent = isTableGrid
+            ? `X: ${(rx * 100).toFixed(1)}cm, Y: ${(ry * 100).toFixed(1)}cm`
+            : `X: ${rx.toFixed(2)}m, Y: ${ry.toFixed(2)}m`;
+        }
+      }
+
+      // 3mm deadband check on 3D coordinates
+      const dist3D = Math.hypot(threeX - lastDisplayed3DX, threeZ - lastDisplayed3DZ);
+      if (force || dist3D >= 0.003) {
+        lastDisplayed3DX = threeX;
+        lastDisplayed3DZ = threeZ;
+        if (px) px.textContent = threeX.toFixed(2);
+        if (pz) pz.textContent = threeZ.toFixed(2);
+      }
+
+      lastHudUpdateTs = now;
+    }
+
+    function simulatePersonCount(count) {
+      const autoBtn = document.getElementById('btn-count-auto');
+      if (autoBtn) {
+        if (count === null || count === undefined) {
+          autoBtn.classList.add('ring-1', 'ring-cyan-400', 'font-bold');
+        } else {
+          autoBtn.classList.remove('ring-1', 'ring-cyan-400', 'font-bold');
+        }
+      }
+      [0, 1, 2].forEach(c => {
+        const btn = document.getElementById(`btn-count-${c}`);
+        if (btn) {
+          if (c === count) {
+            btn.classList.add('ring-1', 'ring-cyan-400', 'font-bold');
+          } else {
+            btn.classList.remove('ring-1', 'ring-cyan-400', 'font-bold');
+          }
+        }
+      });
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({ action: 'set_person_count', count: count }));
+      }
+      if (count === null || count === undefined) {
+        appendLog('system', 'Switched to Live Auto RF Detection mode.');
+        return;
+      }
+
+      const vitalsHud2D = document.getElementById('vitals-2d-hud');
+      const hr2d = document.getElementById('hud-2d-hr');
+      const rr2d = document.getElementById('hud-2d-rr');
+
+      if (count === 0) {
+        targetState.personCount = 0;
+        targetState.isInside = false;
+        hasTarget = false;
+        targetState.confidence = 0.0;
+        targetState.persons = [];
+        updateThrottledHUD(0, 0, 0, 0, true);
+        updateOccupancyCounterUI(0, "ROOM EMPTY (STANDBY)", "standby");
+        if (vitalsHud2D) vitalsHud2D.classList.add('hidden');
+        const activeBadge = document.getElementById('hud-active-node-badge');
+        if (activeBadge) {
+          activeBadge.textContent = 'No Object Detected';
+          activeBadge.className = 'px-1.5 py-0.2 text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 rounded';
+        }
+        const confEl = document.getElementById('hud-room-conf');
+        if (confEl) confEl.textContent = '0%';
+      } else if (count === 1) {
+        targetState.personCount = 1;
+        targetState.isInside = true;
+        hasTarget = true;
+        targetState.confidence = 0.94;
+        targetState.persons = [{
+          id: 1,
+          label: 'Object #1',
+          room_x: targetState.smoothX,
+          room_z: targetState.smoothY,
+          cm_x: Math.round(targetState.smoothX * 100),
+          cm_y: Math.round(targetState.smoothY * 100),
+          speed_mps: 0.0,
+          confidence: 0.94,
+          zone: 'node_1'
+        }];
+        updateThrottledHUD(targetState.smoothX, targetState.smoothY, target3DPos.x, target3DPos.z, true);
+        updateOccupancyCounterUI(1, "1 HUMAN TRACKED (ACTIVE)", "motion");
+        if (vitalsHud2D) {
+          vitalsHud2D.classList.remove('hidden');
+          if (hr2d) hr2d.textContent = '72';
+          if (rr2d) rr2d.textContent = '16.5';
+        }
+        const activeBadge = document.getElementById('hud-active-node-badge');
+        if (activeBadge) {
+          activeBadge.textContent = '● Object Detected';
+          activeBadge.className = 'px-1.5 py-0.2 text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded';
+        }
+        const confEl = document.getElementById('hud-room-conf');
+        if (confEl) confEl.textContent = '94%';
+      } else if (count === 2) {
+        targetState.personCount = 2;
+        targetState.isInside = true;
+        hasTarget = true;
+        targetState.confidence = 0.92;
+        targetState.persons = [
+          {
+            id: 1,
+            label: 'Object #1',
+            room_x: targetState.smoothX,
+            room_z: targetState.smoothY,
+            cm_x: Math.round(targetState.smoothX * 100),
+            cm_y: Math.round(targetState.smoothY * 100),
+            speed_mps: 0.0,
+            confidence: 0.92,
+            zone: 'node_1'
+          },
+          {
+            id: 2,
+            label: 'Object #2',
+            room_x: targetState.smoothX2,
+            room_z: targetState.smoothY2,
+            cm_x: Math.round(targetState.smoothX2 * 100),
+            cm_y: Math.round(targetState.smoothY2 * 100),
+            speed_mps: 0.0,
+            confidence: 0.89,
+            zone: 'node_2'
+          }
+        ];
+        updateThrottledHUD(targetState.smoothX, targetState.smoothY, target3DPos.x, target3DPos.z, true);
+        updateOccupancyCounterUI(2, "2 HUMANS TRACKED (MULTI-ZONE)", "motion");
+        if (vitalsHud2D) {
+          vitalsHud2D.classList.remove('hidden');
+          if (hr2d) hr2d.textContent = '74';
+          if (rr2d) rr2d.textContent = '17.2';
+        }
+        const activeBadge = document.getElementById('hud-active-node-badge');
+        if (activeBadge) {
+          activeBadge.textContent = '● Multiple Objects (2)';
+          activeBadge.className = 'px-1.5 py-0.2 text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded';
+        }
+        const confEl = document.getElementById('hud-room-conf');
+        if (confEl) confEl.textContent = '92%';
+      }
+
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({ action: 'set_person_count', count: count }));
+        appendLog('system', `Sent person count simulation: ${count} human(s)`);
+      }
+    }
+
+    function updateOccupancyCounterUI(pCount, occupancyLabel, detectionMode) {
+      const occDot = document.getElementById('occupancy-dot');
+      const occPing = document.getElementById('occupancy-ping');
+      const occBadge = document.getElementById('occupancy-count-badge');
+      const occPill = document.getElementById('occupancy-mode-pill');
+
+      if (occBadge) {
+        if (pCount === 0) {
+          occBadge.textContent = '0 HUMANS (EMPTY)';
+          occBadge.className = 'px-2.5 py-0.5 text-xs font-mono font-extrabold rounded-md bg-slate-800 text-slate-400 border border-slate-700';
+          if (occDot) occDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-slate-500';
+          if (occPing) occPing.className = 'hidden';
+        } else if (pCount === 1) {
+          occBadge.textContent = '1 HUMAN TRACKED';
+          occBadge.className = 'px-2.5 py-0.5 text-xs font-mono font-extrabold rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/40';
+          if (occDot) occDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-emerald-500';
+          if (occPing) occPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
+        } else {
+          occBadge.textContent = `${pCount} HUMANS (MULTI-ZONE)`;
+          occBadge.className = 'px-2.5 py-0.5 text-xs font-mono font-extrabold rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+          if (occDot) occDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-cyan-400';
+          if (occPing) occPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75';
+        }
+      }
+      if (occPill && detectionMode) {
+        occPill.textContent = `${detectionMode.toUpperCase()} KALMAN F1`;
+      }
+    }
+
+    function applyRoomConfiguration(roomCfg) {
+      if (!roomCfg) return;
+      ROOM.width_m = roomCfg.width_m || ROOM.width_m;
+      ROOM.length_m = roomCfg.length_m || ROOM.length_m;
+      ROOM.height_m = roomCfg.height_m || ROOM.height_m;
+      ROOM.name = roomCfg.name || ROOM.name;
+    }
+
+    const roomCanvas = document.getElementById('room-map-canvas');
+    const roomCtx = roomCanvas ? roomCanvas.getContext('2d') : null;
+    let roomWavePhase = 0;
+    let cachedRoomW = 800;
+    let cachedRoomH = 420;
+
+    function updateRoomCanvasDimensions() {
+      if (!roomCanvas) return;
+      cachedRoomW = Math.round(roomCanvas.clientWidth || 800);
+      cachedRoomH = Math.round(roomCanvas.clientHeight || 420);
+      const dpr = window.devicePixelRatio || 1;
+      if (roomCanvas.width !== cachedRoomW * dpr || roomCanvas.height !== cachedRoomH * dpr) {
+        roomCanvas.width = cachedRoomW * dpr;
+        roomCanvas.height = cachedRoomH * dpr;
+      }
+    }
+    updateRoomCanvasDimensions();
+    window.addEventListener('resize', updateRoomCanvasDimensions);
+
+    function roomToCanvas(rx, ry) {
+      if (!roomCanvas) return { x: 0, y: 0 };
+      const w = cachedRoomW;
+      const h = cachedRoomH;
+      const padX = 36;
+      const padY = 32;
+      const roomW = w - padX * 2;
+      const roomH = h - padY * 2;
+      const normX = Math.max(0, Math.min(1.0, rx / (ROOM.width_m || 1.0)));
+      const normY = Math.max(0, Math.min(1.0, ry / (ROOM.length_m || 0.7)));
+      return {
+        x: padX + normX * roomW,
+        y: padY + normY * roomH
+      };
+    }
+
+    function renderRoomMap() {
+      if (!roomCanvas || !roomCtx) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const displayW = cachedRoomW;
+      const displayH = cachedRoomH;
+
+      if (roomCanvas.width !== displayW * dpr || roomCanvas.height !== displayH * dpr) {
+        roomCanvas.width = displayW * dpr;
+        roomCanvas.height = displayH * dpr;
+      }
+
+      roomCtx.save();
+      roomCtx.scale(dpr, dpr);
+      roomWavePhase += 0.05;
+
+      const w = displayW;
+      const h = displayH;
+      const padX = 36;
+      const padY = 32;
+      const roomW = w - padX * 2;
+      const roomH = h - padY * 2;
+
+      roomCtx.clearRect(0, 0, w, h);
+
+      // 1. Sleek Clean Dark Tabletop Background Surface (no decorative grid lines or scale bars)
+      roomCtx.fillStyle = '#0b1120';
+      roomCtx.beginPath();
+      if (roomCtx.roundRect) {
+        roomCtx.roundRect(padX, padY, roomW, roomH, 14);
+      } else {
+        roomCtx.rect(padX, padY, roomW, roomH);
+      }
+      roomCtx.fill();
+
+      // Border outline
+      roomCtx.strokeStyle = 'rgba(51, 65, 85, 0.85)';
+      roomCtx.lineWidth = 2.0;
+      roomCtx.stroke();
+
+      // Subtle inner ambient border glow
+      roomCtx.strokeStyle = 'rgba(6, 182, 212, 0.12)';
+      roomCtx.lineWidth = 1.0;
+      roomCtx.beginPath();
+      if (roomCtx.roundRect) {
+        roomCtx.roundRect(padX + 2, padY + 2, roomW - 4, roomH - 4, 12);
+      } else {
+        roomCtx.rect(padX + 2, padY + 2, roomW - 4, roomH - 4);
+      }
+      roomCtx.stroke();
+
+      // 2. RF Sensing Mesh Links between ESP nodes (60cm equilateral rig geometry)
+      const espMapNodes = {
+        node_1: { label: 'ESP32-C3 #1 [COM6]', pos: [0.50, 0.05], color: '#22d3ee', role: 'Tx Apex' },
+        node_2: { label: 'ESP32-C3 #2 [COM7]', pos: [0.80, 0.57], color: '#fbbf24', role: 'Tx Corner' },
+        node_3: { label: 'Standard ESP32 [COM11]', pos: [0.20, 0.57], color: '#f87171', role: 'Rx Hub' },
+        node_4: { label: 'Hotspot Centroid', pos: [0.50, 0.40], color: '#818cf8', role: 'Centroid' }
+      };
+
+      // Draw subtle RF link lines
+      const meshLinks = [
+        ['node_1', 'node_3'],
+        ['node_2', 'node_3'],
+        ['node_1', 'node_2'],
+        ['node_1', 'node_4'],
+        ['node_2', 'node_4'],
+        ['node_3', 'node_4']
+      ];
+
+      meshLinks.forEach(([n1, n2]) => {
+        const p1 = roomToCanvas(espMapNodes[n1].pos[0], espMapNodes[n1].pos[1]);
+        const p2 = roomToCanvas(espMapNodes[n2].pos[0], espMapNodes[n2].pos[1]);
+        roomCtx.beginPath();
+        roomCtx.moveTo(p1.x, p1.y);
+        roomCtx.lineTo(p2.x, p2.y);
+        roomCtx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+        roomCtx.lineWidth = 1.2;
+        roomCtx.stroke();
+
+        // Animated RF packet traveling along link
+        const linkPhase = (roomWavePhase * 0.8 + (n1.charCodeAt(5) * 0.25)) % 1.0;
+        const pkX = p1.x + (p2.x - p1.x) * linkPhase;
+        const pkY = p1.y + (p2.y - p1.y) * linkPhase;
+        roomCtx.beginPath();
+        roomCtx.arc(pkX, pkY, 2.0, 0, Math.PI * 2);
+        roomCtx.fillStyle = '#38bdf8';
+        roomCtx.fill();
+      });
+
+      // 3. Object Position Dots:
+      // "if no object is detected remove all the dots and multiple objects are present then add multiple dots"
+      const pCountNow = (targetState.personCount !== undefined) ? targetState.personCount : 0;
+      const isDetected = (pCountNow > 0 && targetState.isInside && hasTarget && !calibrationActive);
+
+      if (isDetected) {
+        const activePersons = (targetState.persons && targetState.persons.length > 0)
+          ? targetState.persons
+          : [{
+              id: 1,
+              label: 'Object #1',
+              room_x: targetState.smoothX,
+              room_z: targetState.smoothY,
+              cm_x: Math.round(targetState.smoothX * 100),
+              cm_y: Math.round(targetState.smoothY * 100),
+              confidence: targetState.confidence || 0.92
+            }];
+
+        activePersons.forEach((person, pIdx) => {
+          const isPerson2 = (person.id === 2 || pIdx === 1);
+          const pSmoothX = isPerson2 ? targetState.smoothX2 : targetState.smoothX;
+          const pSmoothY = isPerson2 ? targetState.smoothY2 : targetState.smoothY;
+          const pt = roomToCanvas(pSmoothX, pSmoothY);
+
+          const mainColor = isPerson2 ? '#f59e0b' : '#38bdf8';
+          const glowColor = isPerson2 ? '#fbbf24' : '#22d3ee';
+          const gradBase = isPerson2 ? '245, 158, 11' : '56, 189, 248';
+
+          // Distance lines from ESP nodes to tracked object
+          ['node_1', 'node_2', 'node_3'].forEach(k => {
+            const espPt = roomToCanvas(espMapNodes[k].pos[0], espMapNodes[k].pos[1]);
+            const dCm = Math.hypot((pSmoothX - espMapNodes[k].pos[0]) * 100, (pSmoothY - espMapNodes[k].pos[1]) * 100);
+            roomCtx.beginPath();
+            roomCtx.setLineDash([3, 4]);
+            roomCtx.moveTo(espPt.x, espPt.y);
+            roomCtx.lineTo(pt.x, pt.y);
+            roomCtx.strokeStyle = espMapNodes[k].color;
+            roomCtx.lineWidth = 1.0;
+            roomCtx.stroke();
+            roomCtx.setLineDash([]);
+          });
+
+          // A. Soft radial ambient glow halo
+          const glowGrad = roomCtx.createRadialGradient(pt.x, pt.y, 2, pt.x, pt.y, 28);
+          glowGrad.addColorStop(0, `rgba(${gradBase}, 0.55)`);
+          glowGrad.addColorStop(0.5, `rgba(${gradBase}, 0.16)`);
+          glowGrad.addColorStop(1, `rgba(${gradBase}, 0)`);
+          roomCtx.fillStyle = glowGrad;
+          roomCtx.beginPath();
+          roomCtx.arc(pt.x, pt.y, 28, 0, Math.PI * 2);
+          roomCtx.fill();
+
+          // B. Subtle expanding pulse ring
+          const pulseR = 8 + ((roomWavePhase * 16 + (isPerson2 ? 8 : 0)) % 16);
+          const pulseAlpha = Math.max(0, 1.0 - (pulseR / 24));
+          roomCtx.beginPath();
+          roomCtx.arc(pt.x, pt.y, pulseR, 0, Math.PI * 2);
+          roomCtx.strokeStyle = `rgba(${gradBase}, ${pulseAlpha * 0.75})`;
+          roomCtx.lineWidth = 1.4;
+          roomCtx.stroke();
+
+          // C. Outer Ring
+          roomCtx.beginPath();
+          roomCtx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+          roomCtx.fillStyle = '#0f172a';
+          roomCtx.fill();
+          roomCtx.strokeStyle = mainColor;
+          roomCtx.lineWidth = 2.4;
+          roomCtx.stroke();
+
+          // D. Solid Glowing Core Dot
+          roomCtx.beginPath();
+          roomCtx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
+          roomCtx.fillStyle = glowColor;
+          roomCtx.fill();
+
+          // E. Clean Minimal Coordinate Pill Tag
+          const cmValX = person.cm_x !== undefined ? person.cm_x : Math.round(pSmoothX * 100);
+          const cmValY = person.cm_y !== undefined ? person.cm_y : Math.round(pSmoothY * 100);
+          const labelText = isPerson2
+            ? `Object #2 [${cmValX}cm, ${cmValY}cm]`
+            : (activePersons.length > 1 ? `Object #1 [${cmValX}cm, ${cmValY}cm]` : `Object [${cmValX}cm, ${cmValY}cm]`);
+
+          roomCtx.font = 'bold 11px "JetBrains Mono", monospace';
+          const txtW = roomCtx.measureText(labelText).width;
+          const pillPadX = 8;
+          const pillH = 20;
+          const pillW = txtW + pillPadX * 2;
+          
+          let pillX = pt.x - pillW / 2;
+          let pillY = isPerson2 ? (pt.y + 16) : (pt.y - pillH - 14);
+
+          // Boundary clamps so label stays within table bounds
+          if (pillX < padX + 6) pillX = padX + 6;
+          if (pillX + pillW > w - padX - 6) pillX = w - padX - pillW - 6;
+          if (pillY < padY + 6) pillY = pt.y + 16;
+          if (pillY + pillH > h - padY - 6) pillY = pt.y - pillH - 14;
+
+          // Pill Background
+          roomCtx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+          roomCtx.beginPath();
+          if (roomCtx.roundRect) {
+            roomCtx.roundRect(pillX, pillY, pillW, pillH, 6);
+          } else {
+            roomCtx.rect(pillX, pillY, pillW, pillH);
+          }
+          roomCtx.fill();
+
+          roomCtx.strokeStyle = `rgba(${gradBase}, 0.75)`;
+          roomCtx.lineWidth = 1.2;
+          roomCtx.stroke();
+
+          // Pill Text
+          roomCtx.fillStyle = mainColor;
+          roomCtx.fillText(labelText, pillX + pillPadX, pillY + 14);
+        });
+      }
+
+      // 4. Draw Physical ESP Nodes (with Antenna Waves and Labels)
+      Object.entries(espMapNodes).forEach(([nKey, node]) => {
+        const pt = roomToCanvas(node.pos[0], node.pos[1]);
+
+        // Expanding antenna wave
+        const waveR = 10 + (roomWavePhase * 14 + (nKey.charCodeAt(5) * 6)) % 16;
+        const waveA = Math.max(0, 1.0 - waveR / 24);
+        roomCtx.beginPath();
+        roomCtx.arc(pt.x, pt.y, waveR, 0, Math.PI * 2);
+        roomCtx.strokeStyle = `${node.color}${Math.round(waveA * 150).toString(16).padStart(2, '0')}`;
+        roomCtx.lineWidth = 1.0;
+        roomCtx.stroke();
+
+        // Outer Node Circle
+        roomCtx.beginPath();
+        roomCtx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+        roomCtx.fillStyle = '#060913';
+        roomCtx.fill();
+        roomCtx.strokeStyle = node.color;
+        roomCtx.lineWidth = 2.0;
+        roomCtx.stroke();
+
+        // Core Antenna Dot
+        roomCtx.beginPath();
+        roomCtx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+        roomCtx.fillStyle = node.color;
+        roomCtx.fill();
+
+        // Node Label Pill
+        roomCtx.font = 'bold 10px "JetBrains Mono", monospace';
+        const lblW = roomCtx.measureText(node.label).width;
+        const bW = lblW + 12;
+        const bH = 18;
+        const isTop = node.pos[1] < 0.25;
+        let bX = pt.x - bW / 2;
+        let bY = isTop ? (pt.y + 14) : (pt.y - bH - 12);
+
+        if (bX < padX + 4) bX = padX + 4;
+        if (bX + bW > w - padX - 4) bX = w - padX - bW - 4;
+
+        roomCtx.fillStyle = 'rgba(11, 17, 32, 0.9)';
+        roomCtx.beginPath();
+        if (roomCtx.roundRect) roomCtx.roundRect(bX, bY, bW, bH, 5);
+        else roomCtx.rect(bX, bY, bW, bH);
+        roomCtx.fill();
+
+        roomCtx.strokeStyle = node.color;
+        roomCtx.lineWidth = 1.0;
+        roomCtx.stroke();
+
+        roomCtx.fillStyle = node.color;
+        roomCtx.textAlign = 'center';
+        roomCtx.fillText(node.label, bX + bW / 2, bY + 12);
+      });
+
+      roomCtx.restore();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BASELINE CALIBRATION (30-SECOND FREE SPACE DATA RECORDING)
+    // ─────────────────────────────────────────────────────────────────────────
+    let calibTimerInterval = null;
+    let calibStartLocalTs = 0;
+    let calibTotalDuration = 30.0;
+
+    function startBaselineCalibration(durationS = 30) {
+      calibrationActive = true;
+      calibTotalDuration = durationS;
+      calibStartLocalTs = performance.now();
+
+      const overlay = document.getElementById('calibration-overlay');
+      if (overlay) overlay.classList.remove('hidden');
+
+      const bar = document.getElementById('calibration-bar');
+      if (bar) bar.style.width = '0%';
+      const pctEl = document.getElementById('calibration-pct');
+      if (pctEl) pctEl.textContent = '0% complete';
+      const timerEl = document.getElementById('calibration-timer');
+      if (timerEl) timerEl.textContent = `${durationS.toFixed(1)}s remaining`;
+
+      ['n1', 'n2', 'n3'].forEach(k => {
+        const el = document.getElementById(`calib-${k}-rssi`);
+        if (el) el.textContent = '-- dBm';
+      });
+
+      appendLog('system', `[CALIBRATION] Recording 30s free-space baseline... Clear table and room of humans!`);
+
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({
+          action: 'calibrate_baseline',
+          duration_s: durationS
+        }));
+      }
+
+      if (calibTimerInterval) clearInterval(calibTimerInterval);
+      calibTimerInterval = setInterval(() => {
+        if (!calibrationActive) {
+          clearInterval(calibTimerInterval);
+          return;
+        }
+        const elapsed = (performance.now() - calibStartLocalTs) / 1000.0;
+        const remain = Math.max(0.0, calibTotalDuration - elapsed);
+        const pct = Math.min(100.0, (elapsed / calibTotalDuration) * 100.0);
+
+        if (bar) bar.style.width = `${pct.toFixed(1)}%`;
+        if (pctEl) pctEl.textContent = `${pct.toFixed(0)}% complete`;
+        if (timerEl) timerEl.textContent = `${remain.toFixed(1)}s remaining`;
+
+        if (elapsed >= calibTotalDuration) {
+          clearInterval(calibTimerInterval);
+        }
+      }, 100);
+    }
+
+    function cancelBaselineCalibration() {
+      calibrationActive = false;
+      if (calibTimerInterval) clearInterval(calibTimerInterval);
+
+      const overlay = document.getElementById('calibration-overlay');
+      if (overlay) overlay.classList.add('hidden');
+
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({ action: 'cancel_calibration' }));
+      }
+      appendLog('system', '[CALIBRATION] Calibration cancelled.');
+    }
+
+    function onBaselineCalibrated(res) {
+      calibrationActive = false;
+      if (calibTimerInterval) clearInterval(calibTimerInterval);
+
+      const overlay = document.getElementById('calibration-overlay');
+      if (overlay) overlay.classList.add('hidden');
+
+      const baselines = res.baselines || {};
+      const thresholds = res.thresholds || {};
+      const varThresholds = res.variance_thresholds || {};
+
+      Object.keys(baselines).forEach(nid => {
+        const baseEl = document.getElementById(`base-${nid}`);
+        if (baseEl) baseEl.textContent = `${baselines[nid].toFixed(1)} dBm`;
+      });
+      Object.keys(varThresholds).forEach(nid => {
+        const vth = parseFloat(varThresholds[nid]);
+        if (!isNaN(vth) && vth > 0 && vth < 0.05) {
+          if (NODES[nid]) NODES[nid].threshold = vth;
+          const sl = document.getElementById(`slider-${nid}`);
+          if (sl) sl.value = vth;
+          const tv = document.getElementById(`thr-val-${nid}`);
+          if (tv) tv.textContent = vth.toFixed(4);
+        }
+      });
+      simulatePersonCount(null);
+
+      appendLog('system', `[CALIB SUCCESS] Baseline locked! N1: ${baselines.node_1?.toFixed(1) || '--'}dBm, N2: ${baselines.node_2?.toFixed(1) || '--'}dBm, N3: ${baselines.node_3?.toFixed(1) || '--'}dBm. Presence now triggers on RF shadow signal drops even if completely motionless.`);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LIVE WEBSOCKET COMMUNICATION & EVENT DISPATCHER
+    // ─────────────────────────────────────────────────────────────────────────
+    function initWebSocket() {
+      if (wsInstance) {
+        try { wsInstance.close(); } catch (e) {}
+      }
+
+      const inputEl = document.getElementById('ws-url-input');
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host || 'localhost:3000';
+      const defaultWsUrl = `${proto}//${host}/ws/sensing`;
+      let targetWsUrl = inputEl?.value;
+      if (!targetWsUrl || (window.location.port && window.location.port !== '3001' && targetWsUrl.includes(':3001/'))) {
+        targetWsUrl = defaultWsUrl;
+        if (inputEl) inputEl.value = targetWsUrl;
+      }
+
+      appendLog('system', `Connecting to WebSocket: ${targetWsUrl}`);
+      try {
+        wsInstance = new WebSocket(targetWsUrl);
+      } catch (err) {
+        appendLog('error', `WebSocket creation failed: ${err.message}`);
+        scheduleWsReconnect();
+        return;
+      }
+
+      wsInstance.onopen = () => {
+        appendLog('system', 'WebSocket connected (25Hz live stream active).');
+        updateWsConnectionUI(true);
+        if (wsReconnectTimer) {
+          clearTimeout(wsReconnectTimer);
+          wsReconnectTimer = null;
+        }
+      };
+
+      wsInstance.onclose = () => {
+        updateWsConnectionUI(false);
+        scheduleWsReconnect();
+      };
+
+      wsInstance.onerror = () => {
+        updateWsConnectionUI(false);
+      };
+
+      wsInstance.onmessage = (event) => {
+        rxCount++;
+        const rxEl = document.getElementById('rx-count');
+        if (rxEl) rxEl.textContent = rxCount;
+
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (e) {
+          return;
+        }
+        try {
+          handleWebSocketMessage(data);
+        } catch (err) {
+          console.error("WS message handling error:", err);
+        }
+      };
+    }
+
+    function scheduleWsReconnect() {
+      if (wsReconnectTimer) return;
+      wsReconnectTimer = setTimeout(() => {
+        wsReconnectTimer = null;
+        if (operatingMode === 'ws') {
+          initWebSocket();
+        }
+      }, 2500);
+    }
+
+    function reconnectWebSocket() {
+      appendLog('system', 'Manual reconnect triggered...');
+      initWebSocket();
+    }
+
+    function updateWsConnectionUI(isConnected) {
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+
+      if (isConnected) {
+        if (statusDot) statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+        if (statusText) {
+          statusText.textContent = 'LIVE SENSOR STREAM';
+          statusText.className = 'text-emerald-300 font-semibold';
+        }
+      } else {
+        if (statusDot) statusDot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500';
+        if (statusText) {
+          statusText.textContent = 'DISCONNECTED (RETRYING)';
+          statusText.className = 'text-rose-400 font-semibold';
+        }
+      }
+    }
+
+    function handleWebSocketMessage(data) {
+      if (data.hardware_connected !== undefined) {
+        const serialBadge = document.getElementById('hardware-serial-badge');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const portName = data.primary_port || 'COM11';
+
+        if (data.hardware_connected) {
+          if (serialBadge) {
+            serialBadge.textContent = `${portName} @ 115200 (Active)`;
+            serialBadge.className = 'text-emerald-400 font-semibold';
+          }
+          if (statusDot) statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+          if (statusText) {
+            statusText.textContent = `LIVE HARDWARE STREAM (${portName})`;
+            statusText.className = 'text-emerald-300 font-semibold';
+          }
+        } else {
+          if (serialBadge) {
+            serialBadge.textContent = `${portName} (USB DISCONNECTED)`;
+            serialBadge.className = 'text-amber-400 font-semibold animate-pulse';
+          }
+          if (statusDot) statusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
+          if (statusText) {
+            statusText.textContent = 'HARDWARE OFFLINE • PLUG IN ESP32 USB';
+            statusText.className = 'text-amber-300 font-semibold';
+          }
+        }
+      }
+
+      if (data.event === 'connected') {
+        if (data.room) applyRoomConfiguration(data.room);
+        appendLog('system', `Connected to RuView Controller (${data.mode || 'live'} mode).`);
+        return;
+      }
+
+      if (data.event === 'calibration_started') {
+        calibrationActive = true;
+        const overlay = document.getElementById('calibration-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+        return;
+      }
+
+      if (data.event === 'baseline_calibrated') {
+        onBaselineCalibrated(data);
+        return;
+      }
+
+      if (data.event === 'calibration_cancelled') {
+        cancelBaselineCalibration();
+        return;
+      }
+
+      if (data.event === 'pong') {
+        appendLog('serial', `< PONG (Latency: ${data.latency_ms || 2.9}ms)`);
+        return;
+      }
+
+      // Live Calibration Sampling Progress
+      if (data.calibration && data.calibration.active) {
+        const cal = data.calibration;
+        const bar = document.getElementById('calibration-bar');
+        const pctEl = document.getElementById('calibration-pct');
+        const timerEl = document.getElementById('calibration-timer');
+        if (bar) bar.style.width = `${cal.progress_pct}%`;
+        if (pctEl) pctEl.textContent = `${cal.progress_pct}% complete`;
+        if (timerEl) timerEl.textContent = `${cal.remaining_s}s remaining`;
+
+        if (data.nodes) {
+          if (data.nodes.node_1) document.getElementById('calib-n1-rssi').textContent = `${data.nodes.node_1.rssi} dBm`;
+          if (data.nodes.node_2) document.getElementById('calib-n2-rssi').textContent = `${data.nodes.node_2.rssi} dBm`;
+          if (data.nodes.node_3) document.getElementById('calib-n3-rssi').textContent = `${data.nodes.node_3.rssi} dBm`;
+        }
+      }
+
+      // 25Hz ruview_3d_update stream
+      if (data.type === 'ruview_3d_update' || data.event === 'ruview_3d_update') {
+        const pCount = data.person_count !== undefined ? data.person_count : (data.human_detected ? 1 : 0);
+        targetState.personCount = pCount;
+        targetState.isInside = (pCount > 0 && (data.has_target || data.human_detected));
+        hasTarget = targetState.isInside;
+        targetState.confidence = data.confidence || 0.0;
+        targetState.persons = data.persons || [];
+
+        // Smooth Interpolation with deadband
+        if (data.room_position) {
+          targetState.targetX = data.room_position.x;
+          targetState.targetY = data.room_position.y;
+          const dx = targetState.targetX - targetState.smoothX;
+          const dy = targetState.targetY - targetState.smoothY;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 0.012) {
+            const lerpRate = Math.min(0.20, Math.max(0.06, dist * 0.45));
+            targetState.smoothX += dx * lerpRate;
+            targetState.smoothY += dy * lerpRate;
+          }
+        }
+
+        if (pCount >= 2 && data.persons && data.persons.length >= 2) {
+          const dx2 = data.persons[1].room_x - targetState.smoothX2;
+          const dy2 = data.persons[1].room_z - targetState.smoothY2;
+          const dist2 = Math.hypot(dx2, dy2);
+          if (dist2 > 0.012) {
+            const lerpRate2 = Math.min(0.20, Math.max(0.06, dist2 * 0.45));
+            targetState.smoothX2 += dx2 * lerpRate2;
+            targetState.smoothY2 += dy2 * lerpRate2;
+          }
+        }
+
+        // 3D Avatar Target
+        if (data.position) {
+          target3DPos.x = data.position.x;
+          target3DPos.z = data.position.z;
+        }
+
+        // Throttled HUD
+        const pos3D = data.position || { x: 0, z: 0 };
+        updateThrottledHUD(targetState.smoothX, targetState.smoothY, pos3D.x, pos3D.z);
+
+        // Occupancy Counter & Detection Mode (Static Presence vs Motion)
+        const detMode = data.ai_model?.detection_mode || (pCount > 0 ? "motion" : "standby");
+        const occLabel = data.occupancy_label || `${pCount} HUMANS`;
+        updateOccupancyCounterUI(pCount, occLabel, detMode);
+
+        const activeBadge = document.getElementById('hud-active-node-badge');
+        if (activeBadge) {
+          if (pCount === 0 || !hasTarget) {
+            activeBadge.textContent = 'No Object Detected';
+            activeBadge.className = 'px-1.5 py-0.2 text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 rounded';
+          } else if (pCount === 1) {
+            activeBadge.textContent = '● Object Detected';
+            activeBadge.className = 'px-1.5 py-0.2 text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded';
+          } else {
+            activeBadge.textContent = `● Multiple Objects (${pCount})`;
+            activeBadge.className = 'px-1.5 py-0.2 text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded';
+          }
+        }
+
+        // Update confidence
+        const confEl = document.getElementById('hud-room-conf');
+        if (confEl) confEl.textContent = `${Math.round(targetState.confidence * 100)}%`;
+        const hud3dConf = document.getElementById('hud-conf-val');
+        if (hud3dConf) hud3dConf.textContent = `${(targetState.confidence * 100).toFixed(1)}%`;
+
+        // Top-Right Vital Signs HUD (gated by accuracy)
+        const vitals = data.vitals;
+        const isAccurate = (
+          data.confidence >= 0.70 &&
+          vitals &&
+          (vitals.heart_rate >= 40 && vitals.heart_rate <= 180) &&
+          (vitals.respiratory_rate >= 8 && vitals.respiratory_rate <= 35) &&
+          targetState.isInside &&
+          pCount > 0 &&
+          !calibrationActive
+        );
+        const vitals2DEl = document.getElementById('vitals-2d-hud');
+        if (vitals2DEl) {
+          if (isAccurate) {
+            vitals2DEl.classList.remove('hidden');
+            const hr2d = document.getElementById('hud-2d-hr');
+            const rr2d = document.getElementById('hud-2d-rr');
+            if (hr2d) hr2d.textContent = Math.round(vitals.heart_rate);
+            if (rr2d) rr2d.textContent = vitals.respiratory_rate.toFixed(1);
+          } else {
+            vitals2DEl.classList.add('hidden');
+          }
+        }
+
+        // 3D Vitals HUD
+        const v3dHr = document.getElementById('hud-vitals-hr');
+        const v3dRr = document.getElementById('hud-vitals-rr');
+        const v3dState = document.getElementById('hud-vitals-state');
+        if (v3dHr && vitals) v3dHr.textContent = vitals.heart_rate > 0 ? Math.round(vitals.heart_rate) : '--';
+        if (v3dRr && vitals) v3dRr.textContent = vitals.respiratory_rate > 0 ? vitals.respiratory_rate.toFixed(1) : '--';
+        if (v3dState) v3dState.textContent = isAccurate ? 'Locked • Normal Rhythm' : 'Standby • Searching';
+
+        // 3D Keypoints
+        if (data.keypoints && pCount > 0) {
+          updateSkeletonFromKeypoints(data.keypoints);
+        }
+
+        // Node Telemetry Cards
+        if (data.nodes) {
+          const deltaMap = data.delta_rssi || {};
+          const baseMap = data.baselines || {};
+          const threshMap = data.drop_thresholds || {};
+
+          let rigGeometryChanged = false;
+          Object.keys(data.nodes).forEach(nid => {
+            const nodeData = data.nodes[nid];
+            const target = NODES[nid];
+            if (target && Array.isArray(nodeData.pos_m) && nodeData.pos_m.length === 2) {
+              const [px, pz] = target.pos_m || [];
+              if (px !== nodeData.pos_m[0] || pz !== nodeData.pos_m[1]) {
+                target.pos_m = [Number(nodeData.pos_m[0]), Number(nodeData.pos_m[1])];
+                if (nodeData.label) target.label = nodeData.label;
+                rigGeometryChanged = true;
+              }
+            }
+            const liveRssi = nodeData.rssi;
+            const variance = nodeData.variance;
+            const dropVal = deltaMap[nid] !== undefined ? deltaMap[nid] : 0.0;
+            const baseVal = baseMap[nid] !== undefined ? baseMap[nid] : liveRssi;
+            const dropThresh = threshMap[nid] !== undefined ? threshMap[nid] : 1.8;
+
+            // Live RSSI
+            const rssiEl = document.getElementById(`rssi-${nid}`);
+            if (rssiEl && liveRssi != null && !isNaN(Number(liveRssi))) {
+              rssiEl.textContent = `${Number(liveRssi).toFixed(1)} dBm`;
+            }
+
+            // Variance
+            const varEl = document.getElementById(`var-${nid}`);
+            if (varEl && variance != null && !isNaN(Number(variance))) {
+              varEl.textContent = Number(variance).toFixed(4);
+            }
+
+            // Base RSSI
+            const baseEl = document.getElementById(`base-${nid}`);
+            if (baseEl && baseVal != null && !isNaN(Number(baseVal))) {
+              baseEl.textContent = `${Number(baseVal).toFixed(1)} dBm`;
+            }
+
+            // Drop Delta
+            const deltaEl = document.getElementById(`delta-${nid}`);
+            if (deltaEl && dropVal != null && !isNaN(Number(dropVal))) {
+              const numDrop = Number(dropVal);
+              const isSignificantDrop = (numDrop >= dropThresh);
+              deltaEl.textContent = `${numDrop >= 0 ? '+' : ''}${numDrop.toFixed(1)} dB`;
+              if (isSignificantDrop) {
+                deltaEl.className = 'text-sm sm:text-base font-bold text-rose-400 animate-pulse';
+              } else {
+                deltaEl.className = 'text-sm sm:text-base font-bold text-emerald-400';
+              }
+            }
+
+            // LED & Card state
+            const isAct = nodeData.is_active;
+            const ledEl = document.getElementById(`led-${nid}`);
+            const statEl = document.getElementById(`status-${nid}`);
+            const cardEl = document.getElementById(`card-${nid}`);
+            const nodeMeta = NODES[nid];
+
+            if (isAct && nodeMeta) {
+              if (ledEl) ledEl.className = `w-7 h-7 rounded-full led-bulb ${nodeMeta.ledClass}`;
+              if (statEl) {
+                statEl.textContent = '● ACTIVE';
+                statEl.className = 'text-xs font-mono font-bold text-white';
+              }
+              if (cardEl) {
+                cardEl.className = `bg-slate-900/90 backdrop-blur-md border-2 ${nodeMeta.cardClass} rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between`;
+              }
+            } else {
+              if (ledEl) ledEl.className = 'w-7 h-7 rounded-full led-bulb led-off';
+              if (statEl) {
+                statEl.textContent = '○ IDLE';
+                statEl.className = 'text-xs font-mono font-bold text-slate-400';
+              }
+              if (cardEl) {
+                cardEl.className = 'bg-slate-900/90 backdrop-blur-md border-2 card-idle rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between';
+              }
+            }
+
+            // Update Sparkline History & Window counter
+            if (NODES[nid]) {
+              NODES[nid].varHistory.push(variance);
+              if (NODES[nid].varHistory.length > 20) NODES[nid].varHistory.shift();
+              const winEl = document.getElementById(`samples-${nid}`);
+              if (winEl) winEl.textContent = `Window: ${Math.min(6, NODES[nid].varHistory.length)}/6`;
+            }
+          });
+          if (rigGeometryChanged) {
+            rigGeometryChanged = false;
+            syncRigGeometry();
+          }
+        }
+
+        // Subcarriers & Embedding Spectrum (throttled to 10Hz to prevent DOM reflow lockup)
+        const nowBars = performance.now();
+        if (nowBars - lastBarsUpdateTs >= 100) {
+          lastBarsUpdateTs = nowBars;
+          if (data.subcarriers && data.subcarriers.length > 0) {
+            updateSubcarrierBars(data.subcarriers);
+          }
+          if (data.ai_model && data.ai_model.embedding_sample) {
+            updateEmbeddingBars(data.ai_model.embedding_sample);
+          }
+        }
+        if (data.ai_model) {
+          const ai = data.ai_model;
+          const pProb = (ai.presence_prob !== undefined ? ai.presence_prob : (data.confidence || 0.0)) * 100.0;
+          const presPctEl = document.getElementById('ai-presence-pct');
+          if (presPctEl) presPctEl.textContent = `${pProb.toFixed(1)}%`;
+
+          const cValEl = document.getElementById('ai-contrast-val');
+          if (cValEl) cValEl.textContent = (ai.contrastive_shift !== undefined ? ai.contrastive_shift : 0.0).toFixed(4);
+
+          const presBarEl = document.getElementById('ai-presence-bar');
+          if (presBarEl) presBarEl.style.width = `${Math.min(100, Math.max(0, pProb)).toFixed(1)}%`;
+
+          const presLblEl = document.getElementById('ai-presence-label');
+          if (presLblEl) {
+            presLblEl.textContent = targetState.isInside ? 'HUMAN DETECTED' : 'STANDBY';
+            presLblEl.className = targetState.isInside ? 'font-bold text-emerald-400' : 'font-bold text-slate-400';
+          }
+        }
+
+        const rawChk = document.getElementById('chk-raw-json');
+        if (rawChk && rawChk.checked) {
+          appendLog('serial', `JSON Frame: Target=${data.has_target} Count=${pCount} Pos=(${targetState.smoothX.toFixed(2)}, ${targetState.smoothY.toFixed(2)})`);
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // UI INTERACTIVITY & HELPER FUNCTIONS
+    // ─────────────────────────────────────────────────────────────────────────
+    function setOperatingMode(mode) {
+      operatingMode = mode;
+      const btnWs = document.getElementById('btn-mode-ws');
+      const btnInt = document.getElementById('btn-mode-interactive');
+
+      if (mode === 'ws') {
+        if (btnWs) btnWs.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 bg-cyan-600 text-white shadow';
+        if (btnInt) btnInt.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800';
+        initWebSocket();
+      } else {
+        if (btnInt) btnInt.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 bg-cyan-600 text-white shadow';
+        if (btnWs) btnWs.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800';
+        appendLog('system', 'Switched to Interactive Simulation mode.');
+      }
+    }
+
+    function triggerNodePulse(nodeId) {
+      if (NODES[nodeId]) {
+        NODES[nodeId].isActive = true;
+        NODES[nodeId].lastTriggered = performance.now();
+        setTimeout(() => {
+          NODES[nodeId].isActive = false;
+        }, 1200);
+      }
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({ action: 'pulse_node', zone: nodeId }));
+      }
+      appendLog('serial', `> Injected RF perturbation on ${nodeId}`);
+    }
+
+    function setPersonLocation(x, y, zone) {
+      targetState.smoothX = x;
+      targetState.smoothY = y;
+      targetState.targetX = x;
+      targetState.targetY = y;
+      targetState.personCount = Math.max(1, targetState.personCount || 1);
+      targetState.isInside = true;
+      hasTarget = true;
+      targetState.confidence = 0.95;
+
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({
+          action: 'locate_target',
+          x: x,
+          y: y,
+          zone: zone || 'node_1'
+        }));
+      }
+      appendLog('system', `Relocated target to [${Math.round(x * 100)}cm, ${Math.round(y * 100)}cm]`);
+    }
+
+    function runSelfTestFlash() {
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({ action: 'self_test' }));
+        txCount++;
+        const txEl = document.getElementById('tx-count');
+        if (txEl) txEl.textContent = txCount;
+        appendLog('serial', '> Sent <TEST:ALL:500MS>');
+      }
+    }
+
+    function sendPingCommand() {
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({ action: 'ping' }));
+        txCount++;
+        const txEl = document.getElementById('tx-count');
+        if (txEl) txEl.textContent = txCount;
+        appendLog('serial', '> Sent <PING>');
+      }
+    }
+
+    function updateThreshold(nodeId, val) {
+      const v = parseFloat(val);
+      if (NODES[nodeId]) NODES[nodeId].threshold = v;
+      const el = document.getElementById(`thr-val-${nodeId}`);
+      if (el) el.textContent = v.toFixed(4);
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({ action: 'set_threshold', zone: nodeId, value: v }));
+      }
+    }
+
+    function resetThreshold(nodeId, defaultVal) {
+      const slider = document.getElementById(`slider-${nodeId}`);
+      if (slider) slider.value = defaultVal;
+      updateThreshold(nodeId, defaultVal);
+    }
+
+    function appendLog(type, text) {
+      const log = document.getElementById('serial-log');
+      if (!log) return;
+      const timeStr = new Date().toTimeString().split(' ')[0];
+      const div = document.createElement('div');
+      div.className = 'text-[11px] font-mono leading-tight';
+
+      if (type === 'serial') {
+        div.innerHTML = `<span class="text-slate-500">[${timeStr}]</span> <span class="text-emerald-400">${escapeHtml(text)}</span>`;
+      } else if (type === 'error') {
+        div.innerHTML = `<span class="text-slate-500">[${timeStr}]</span> <span class="text-rose-400 font-bold">${escapeHtml(text)}</span>`;
+      } else {
+        div.innerHTML = `<span class="text-slate-500">[${timeStr}]</span> <span class="text-cyan-300">${escapeHtml(text)}</span>`;
+      }
+
+      log.appendChild(div);
+      while (log.children.length > 50) {
+        log.removeChild(log.firstChild);
+      }
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearSerialLog() {
+      const log = document.getElementById('serial-log');
+      if (log) log.innerHTML = '';
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    let embedBarElements = [];
+    function initEmbeddingBars() {
+      const container = document.getElementById('ai-embedding-bars');
+      if (!container) return;
+      container.innerHTML = '';
+      embedBarElements = [];
+      for (let i = 0; i < 8; i++) {
+        const bar = document.createElement('div');
+        bar.id = `embed-bar-${i}`;
+        bar.className = 'flex-1 bg-cyan-500/70 rounded-sm transition-all duration-100';
+        bar.style.height = '40%';
+        container.appendChild(bar);
+        embedBarElements.push(bar);
+      }
+    }
+
+    function updateEmbeddingBars(samples) {
+      if (!samples) return;
+      const len = Math.min(samples.length, embedBarElements.length);
+      for (let i = 0; i < len; i++) {
+        const bar = embedBarElements[i];
+        if (bar) {
+          const h = Math.max(10, Math.min(100, Math.round((Math.abs(samples[i]) / 1.5) * 100)));
+          bar.style.height = `${h}%`;
+        }
+      }
+    }
+
+    let scBarElements = [];
+    function initSubcarrierBars() {
+      const container = document.getElementById('subcarrier-bars');
+      if (!container) return;
+      container.innerHTML = '';
+      scBarElements = [];
+      for (let i = 0; i < 56; i++) {
+        const bar = document.createElement('div');
+        bar.id = `sc-bar-${i}`;
+        bar.className = 'flex-1 bg-cyan-500/60 rounded-t-sm transition-all duration-75';
+        bar.style.height = '30%';
+        container.appendChild(bar);
+        scBarElements.push(bar);
+      }
+    }
+
+    function updateSubcarrierBars(subcarriers) {
+      if (!subcarriers) return;
+      const len = Math.min(subcarriers.length, scBarElements.length);
+      for (let i = 0; i < len; i++) {
+        const bar = scBarElements[i];
+        if (bar) {
+          const h = Math.max(10, Math.min(100, Math.round(subcarriers[i] * 100)));
+          bar.style.height = `${h}%`;
+        }
+      }
+    }
+
+    let lastBarsUpdateTs = 0;
+    let lastSparkUpdateTs = 0;
+    const sparkCanvasCache = {};
+
+    function updateAllSparklines(force = false) {
+      const now = performance.now();
+      if (!force && (now - lastSparkUpdateTs < 100)) return; // 10Hz throttle
+      lastSparkUpdateTs = now;
+      ['node_1', 'node_2', 'node_3'].forEach(nid => {
+        if (NODES[nid]) {
+          drawSparkline(`spark-${nid}`, NODES[nid].varHistory, NODES[nid].threshold, NODES[nid].colorHex);
+        }
+      });
+    }
+
+    function drawSparkline(canvasId, history, threshold, color) {
+      let cached = sparkCanvasCache[canvasId];
+      if (!cached) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        cached = {
+          canvas,
+          ctx,
+          w: canvas.clientWidth || 200,
+          h: canvas.clientHeight || 80
+        };
+        canvas.width = cached.w;
+        canvas.height = cached.h;
+        sparkCanvasCache[canvasId] = cached;
+      }
+
+      const { canvas, ctx, w, h } = cached;
+      ctx.clearRect(0, 0, w, h);
+      if (!history || history.length < 2) return;
+
+      const maxVal = Math.max(threshold * 2.5, ...history, 0.002);
+      ctx.strokeStyle = color || '#22d3ee';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+
+      const step = w / (history.length - 1);
+      history.forEach((val, idx) => {
+        const x = idx * step;
+        const y = h - (val / maxVal) * (h - 10) - 5;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      const threshY = h - (threshold / maxVal) * (h - 10) - 5;
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(0, threshY);
+      ctx.lineTo(w, threshY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 10. THREE.JS 3D SPATIAL RADAR & 17-KEYPOINT DENSEPOSE SKELETON
+    // ─────────────────────────────────────────────────────────────────────────
+    let currentVisualizerTab = '2d';
+    let threeScene = null;
+    let threeCamera = null;
+    let threeRenderer = null;
+    let threeControls = null;
+    let threeInitialized = false;
+
+    const beaconNodes = { node_1: null, node_2: null, node_3: null };
+    const waveRings = { node_1: [], node_2: [], node_3: [] };
+    let dynamicScatterRay = null;
+
+    // Primary 3D Human Skeleton (Cyan theme)
+    let humanGroup = null;
+    const jointMeshes = {};
+    let boneLines = null;
+    let chestBreathMesh = null;
+    let visorMesh = null;
+    let groundReticle = null;
+    let groundDisc = null;
+    const current3DPos = { x: 0.0, y: 0.0, z: 0.0 };
+    const target3DPos = { x: 0.0, y: 0.0, z: 0.0 };
+
+    // Secondary 3D Human Skeleton (Emerald/Amber theme for person_count >= 2)
+    let humanGroup2 = null;
+    const jointMeshes2 = {};
+    let boneLines2 = null;
+    let chestBreathMesh2 = null;
+    let visorMesh2 = null;
+    let groundReticle2 = null;
+    let groundDisc2 = null;
+    const current3DPos2 = { x: 0.0, y: 0.0, z: 0.0 };
+    const target3DPos2 = { x: 0.0, y: 0.0, z: 0.0 };
+
+    let walkPhase = 0;
+    let breathPhase = 0;
+
+    function updateSkeletonFromKeypoints2(kpDict) {
+      if (!humanGroup2) return;
+      JOINT_NAMES.forEach(jName => {
+        const kp = kpDict[jName];
+        const mesh = jointMeshes2[jName];
+        if (kp && mesh) {
+          const relX = kp.x - target3DPos2.x;
+          const relZ = kp.z - target3DPos2.z;
+          mesh.position.set(relX, kp.y, relZ);
+        }
+      });
+      updateBoneGeometry2();
+    }
+
+    function updateBoneGeometry2() {
+      if (!boneLines2 || !humanGroup2) return;
+      const posAttr = boneLines2.geometry.attributes.position;
+      if (!posAttr || !posAttr.array) return;
+      const arr = posAttr.array;
+      let ptr = 0;
+      COCO_PAIRS.forEach(([j1, j2]) => {
+        const m1 = jointMeshes2[j1];
+        const m2 = jointMeshes2[j2];
+        if (m1 && m2) {
+          arr[ptr++] = m1.position.x;
+          arr[ptr++] = m1.position.y;
+          arr[ptr++] = m1.position.z;
+          arr[ptr++] = m2.position.x;
+          arr[ptr++] = m2.position.y;
+          arr[ptr++] = m2.position.z;
+        } else {
+          ptr += 6;
+        }
+      });
+      posAttr.needsUpdate = true;
+    }
+
+    const COCO_PAIRS = [
+      ['nose', 'left_eye'], ['nose', 'right_eye'],
+      ['left_eye', 'left_ear'], ['right_eye', 'right_ear'],
+      ['nose', 'left_shoulder'], ['nose', 'right_shoulder'],
+      ['left_shoulder', 'right_shoulder'],
+      ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
+      ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
+      ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
+      ['left_hip', 'right_hip'],
+      ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
+      ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
+    ];
+
+    const JOINT_NAMES = [
+      'nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear',
+      'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
+      'left_wrist', 'right_wrist', 'left_hip', 'right_hip',
+      'left_knee', 'right_knee', 'left_ankle', 'right_ankle'
+    ];
+
+    const DEFAULT_KEYPOINT_OFFSETS = {
+      nose:           { x:  0.00, y: 1.70, z:  0.00 },
+      left_eye:       { x: -0.07, y: 1.74, z: -0.04 },
+      right_eye:      { x:  0.07, y: 1.74, z: -0.04 },
+      left_ear:       { x: -0.14, y: 1.72, z:  0.00 },
+      right_ear:      { x:  0.14, y: 1.72, z:  0.00 },
+      left_shoulder:  { x: -0.36, y: 1.45, z:  0.00 },
+      right_shoulder: { x:  0.36, y: 1.45, z:  0.00 },
+      left_elbow:     { x: -0.45, y: 1.15, z:  0.08 },
+      right_elbow:    { x:  0.45, y: 1.15, z:  0.08 },
+      left_wrist:     { x: -0.38, y: 0.88, z:  0.18 },
+      right_wrist:    { x:  0.38, y: 0.88, z:  0.18 },
+      left_hip:       { x: -0.20, y: 0.95, z:  0.00 },
+      right_hip:      { x:  0.20, y: 0.95, z:  0.00 },
+      left_knee:      { x: -0.22, y: 0.50, z:  0.04 },
+      right_knee:     { x:  0.22, y: 0.50, z:  0.04 },
+      left_ankle:     { x: -0.22, y: 0.05, z:  0.00 },
+      right_ankle:    { x:  0.22, y: 0.05, z:  0.00 },
+    };
+
+    function switchVisualizerTab(tab) {
+      currentVisualizerTab = tab;
+      const btn2d = document.getElementById('tab-btn-2d');
+      const btn3d = document.getElementById('tab-btn-3d');
+      const view2d = document.getElementById('room-map-viewport-wrap');
+      const view3d = document.getElementById('three-viewport-wrap');
+      const camBar = document.getElementById('cam-preset-bar');
+      const title = document.getElementById('view-title');
+      const badge = document.getElementById('view-badge');
+      const instr = document.getElementById('canvas-instruction');
+
+      if (tab === '2d') {
+        btn2d.className = 'px-2.5 py-1 text-xs font-mono font-bold rounded-lg transition bg-cyan-600 text-white shadow flex items-center gap-1.5';
+        btn3d.className = 'px-2.5 py-1 text-xs font-mono font-semibold rounded-lg transition text-slate-400 hover:text-white hover:bg-slate-800 flex items-center gap-1.5';
+        view2d.classList.remove('hidden');
+        view3d.classList.add('hidden');
+        if (camBar) camBar.classList.add('hidden');
+        title.innerHTML = '2D Room Wi-Fi Map &amp; Multi-Static RF Mesh';
+        badge.innerHTML = '5.0m × 4.0m Room Space';
+        instr.innerHTML = 'Live multi-static RF tomography mesh connecting Desk Tx, Window Tx, and Doorway Base Rx. Click or move cursor inside room to inject test perturbations.';
+      } else {
+        btn3d.className = 'px-2.5 py-1 text-xs font-mono font-bold rounded-lg transition bg-cyan-600 text-white shadow flex items-center gap-1.5';
+        btn2d.className = 'px-2.5 py-1 text-xs font-mono font-semibold rounded-lg transition text-slate-400 hover:text-white hover:bg-slate-800 flex items-center gap-1.5';
+        view3d.classList.remove('hidden');
+        view2d.classList.add('hidden');
+        if (camBar) camBar.classList.remove('hidden');
+        title.innerHTML = '3D DensePose Spatial Observatory &amp; RF Radar';
+        badge.innerHTML = 'Three.js WebGL (5m × 4m Room)';
+        instr.innerHTML = 'Real-time 17-keypoint 3D DensePose human reconstruction from ruvnet/wifi-densepose-pretrained model with through-wall vitals DSP.';
+        onWindowResizeThree();
+      }
+    }
+
+    function setCameraView(preset) {
+      if (!threeCamera || !threeControls) return;
+      if (preset === 'iso') {
+        threeCamera.position.set(7.5, 8.5, 9.0);
+        threeControls.target.set(0.0, 0.8, 0.0);
+      } else if (preset === 'top') {
+        threeCamera.position.set(0.0, 14.0, 0.05);
+        threeControls.target.set(0.0, 0.0, 0.0);
+      } else if (preset === 'side') {
+        threeCamera.position.set(11.0, 3.0, 0.0);
+        threeControls.target.set(0.0, 1.0, 0.0);
+      }
+      threeControls.update();
+    }
+    function resetCameraView() {
+      setCameraView('iso');
+    }
+
+    function updateSkeletonFromKeypoints(kpDict) {
+      if (!humanGroup) return;
+      JOINT_NAMES.forEach(jName => {
+        const kp = kpDict[jName];
+        const mesh = jointMeshes[jName];
+        if (kp && mesh) {
+          const relX = kp.x - target3DPos.x;
+          const relZ = kp.z - target3DPos.z;
+          mesh.position.set(relX, kp.y, relZ);
+        }
+      });
+      updateBoneGeometry();
+    }
+
+    function updateBoneGeometry() {
+      if (!boneLines || !humanGroup) return;
+      const posAttr = boneLines.geometry.attributes.position;
+      if (!posAttr || !posAttr.array) return;
+      const arr = posAttr.array;
+      let ptr = 0;
+      COCO_PAIRS.forEach(([j1, j2]) => {
+        const m1 = jointMeshes[j1];
+        const m2 = jointMeshes[j2];
+        if (m1 && m2) {
+          arr[ptr++] = m1.position.x;
+          arr[ptr++] = m1.position.y;
+          arr[ptr++] = m1.position.z;
+          arr[ptr++] = m2.position.x;
+          arr[ptr++] = m2.position.y;
+          arr[ptr++] = m2.position.z;
+        } else {
+          ptr += 6;
+        }
+      });
+      posAttr.needsUpdate = true;
+    }
+
+    function initThreeScene() {
+      const container = document.getElementById('three-viewport-wrap');
+      const canvas = document.getElementById('three-canvas');
+      if (!container || !canvas || typeof THREE === 'undefined') return;
+
+      const width = container.clientWidth || 800;
+      const height = container.clientHeight || 420;
+
+      threeScene = new THREE.Scene();
+      threeScene.background = new THREE.Color(0x060913);
+      threeScene.fog = new THREE.FogExp2(0x060913, 0.035);
+
+      threeCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+      threeCamera.position.set(7.5, 8.5, 9.0);
+
+      threeRenderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+        antialias: true,
+        alpha: false,
+        powerPreference: 'high-performance'
+      });
+      threeRenderer.setSize(width, height);
+      threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      threeRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+      threeRenderer.toneMappingExposure = 1.2;
+
+      threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
+      threeControls.enableDamping = true;
+      threeControls.dampingFactor = 0.08;
+      threeControls.maxPolarAngle = Math.PI / 2 - 0.04;
+      threeControls.minDistance = 3.0;
+      threeControls.maxDistance = 25.0;
+      threeControls.target.set(0.0, 0.8, 0.0);
+      threeControls.update();
+
+      const ambientLight = new THREE.AmbientLight(0x1e293b, 1.4);
+      threeScene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
+      dirLight.position.set(8, 14, 8);
+      threeScene.add(dirLight);
+
+      const fillLight = new THREE.DirectionalLight(0xa855f7, 0.5);
+      fillLight.position.set(-8, 10, -6);
+      threeScene.add(fillLight);
+
+      // Floor Grid matching real room dimensions (5m × 4m)
+      const roomGroup = new THREE.Group();
+      threeScene.add(roomGroup);
+
+      const gridHelper = new THREE.GridHelper(10, 10, 0x06b6d4, 0x1e293b);
+      gridHelper.position.y = -0.01;
+      roomGroup.add(gridHelper);
+
+      // One scene transform for the whole 3D view: 5 scene units across the room width,
+      // applied to both axes, matching the server's projection of person positions.
+      // The floor used to be drawn in raw metres, leaving avatars far outside it.
+      const sceneScale = 5.0 / Math.max(0.1, ROOM.width_m || 1.0);
+      const roomSpanX = ROOM.width_m * sceneScale;
+      const roomSpanZ = ROOM.length_m * sceneScale;
+      const roomToScene = (rx, rz) => [
+        (rx - ROOM.width_m / 2.0) * sceneScale,
+        (rz - ROOM.length_m / 2.0) * sceneScale
+      ];
+      roomToScene3D = roomToScene;
+
+      const floorGeo = new THREE.PlaneGeometry(roomSpanX, roomSpanZ);
+      const floorMat = new THREE.MeshBasicMaterial({ color: 0x0b1120, side: THREE.DoubleSide });
+      const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.rotation.x = -Math.PI / 2;
+      floorMesh.position.y = 0.0;
+      roomGroup.add(floorMesh);
+
+      const tableSpanY = (ROOM.height_m || 0.5) * sceneScale;
+      const roomBoundGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(roomSpanX, tableSpanY, roomSpanZ));
+      const roomBoundMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 });
+      const roomBoundLine = new THREE.LineSegments(roomBoundGeo, roomBoundMat);
+      roomBoundLine.position.y = tableSpanY / 2.0;
+      roomGroup.add(roomBoundLine);
+
+      // The floor and outline above ARE the tabletop rig (1.0 x 0.7 x 0.5 m), so no
+      // separate furniture prop belongs in this scene.
+      function createBeaconTower3D(tag, x, z, colorHex, label) {
+        const group = new THREE.Group();
+        group.position.set(x, 0, z);
+
+        const mastGeo = new THREE.CylinderGeometry(0.03, 0.07, 2.2, 8);
+        const mastMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.2 });
+        const mast = new THREE.Mesh(mastGeo, mastMat);
+        mast.position.y = 1.1;
+        group.add(mast);
+
+        const orbGeo = new THREE.SphereGeometry(0.16, 16, 16);
+        const orbMat = new THREE.MeshStandardMaterial({
+          color: colorHex,
+          emissive: colorHex,
+          emissiveIntensity: 0.85,
+          roughness: 0.1
+        });
+        const orb = new THREE.Mesh(orbGeo, orbMat);
+        orb.position.y = 2.25;
+        group.add(orb);
+
+        const pLight = new THREE.PointLight(colorHex, 1.2, 7);
+        pLight.position.y = 2.3;
+        group.add(pLight);
+
+        const rings = [];
+        for (let r = 0; r < 3; r++) {
+          const ringGeo = new THREE.TorusGeometry(0.7 + r * 1.3, 0.03, 8, 36);
+          const ringMat = new THREE.MeshBasicMaterial({
+            color: colorHex,
+            transparent: true,
+            opacity: 0.45 - r * 0.12
+          });
+          const ring = new THREE.Mesh(ringGeo, ringMat);
+          ring.rotation.x = Math.PI / 2;
+          ring.position.y = 2.25;
+          group.add(ring);
+          rings.push(ring);
+        }
+        waveRings[tag] = rings;
+        beaconNodes[tag] = group;
+        threeScene.add(group);
+        return group;
+      }
+
+      // Towers sit at the rig's real geometry (same NODES the 2D map draws). These were
+      // hardcoded from an obsolete 5m x 4m room, so the 3D triangle matched nothing on the
+      // table and node_4 was missing.
+      const BEACON_COLORS = { node_1: 0x22d3ee, node_2: 0xfbbf24, node_3: 0xf87171, node_4: 0x818cf8 };
+      Object.keys(NODES).forEach(nid => {
+        const nd = NODES[nid];
+        if (!nd || !Array.isArray(nd.pos_m)) return;
+        const [sx, sz] = roomToScene(nd.pos_m[0], nd.pos_m[1]);
+        createBeaconTower3D(nid, sx, sz, BEACON_COLORS[nid] || 0x22d3ee, nd.label || nid);
+      });
+
+      // Dynamic Multipath Scatter Ray (pre-allocated 9-float buffer for zero-alloc in-place updates)
+      const scatterRayGeo = new THREE.BufferGeometry();
+      scatterRayGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
+      dynamicScatterRay = new THREE.Line(
+        scatterRayGeo,
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2, transparent: true, opacity: 0.85 })
+      );
+      threeScene.add(dynamicScatterRay);
+
+      // 17-Keypoint DensePose Human Skeleton
+      humanGroup = new THREE.Group();
+      humanGroup.position.set(0, 0, 0);
+      threeScene.add(humanGroup);
+
+      const jointGeo = new THREE.SphereGeometry(0.075, 16, 16);
+      const jointMat = new THREE.MeshStandardMaterial({
+        color: 0x22d3ee,
+        emissive: 0x0891b2,
+        roughness: 0.15,
+        metalness: 0.85
+      });
+
+      JOINT_NAMES.forEach(jName => {
+        const mesh = new THREE.Mesh(jointGeo, jointMat);
+        const off = DEFAULT_KEYPOINT_OFFSETS[jName];
+        mesh.position.set(off.x, off.y, off.z);
+        humanGroup.add(mesh);
+        jointMeshes[jName] = mesh;
+      });
+
+      const boneLineGeo = new THREE.BufferGeometry();
+      boneLineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(COCO_PAIRS.length * 6), 3));
+      const boneLineMat = new THREE.LineBasicMaterial({
+        color: 0x38bdf8,
+        linewidth: 2.5,
+        transparent: true,
+        opacity: 0.95
+      });
+      boneLines = new THREE.LineSegments(boneLineGeo, boneLineMat);
+      humanGroup.add(boneLines);
+      updateBoneGeometry();
+
+      const chestGeo = new THREE.BoxGeometry(0.52, 0.62, 0.32);
+      const chestMat = new THREE.MeshBasicMaterial({
+        color: 0x06b6d4,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.5
+      });
+      chestBreathMesh = new THREE.Mesh(chestGeo, chestMat);
+      chestBreathMesh.position.set(0, 1.3, 0);
+      humanGroup.add(chestBreathMesh);
+
+      const visorGeo = new THREE.TorusGeometry(0.24, 0.02, 8, 24);
+      const visorMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+      visorMesh = new THREE.Mesh(visorGeo, visorMat);
+      visorMesh.position.set(0, 1.72, 0);
+      visorMesh.rotation.x = Math.PI / 2;
+      humanGroup.add(visorMesh);
+
+      // Targeting Ground Ring beneath human avatar in 3D
+      const groundReticleGeo = new THREE.RingGeometry(0.5, 0.58, 36);
+      const groundReticleMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
+      groundReticle = new THREE.Mesh(groundReticleGeo, groundReticleMat);
+      groundReticle.rotation.x = -Math.PI / 2;
+      groundReticle.position.y = 0.02;
+      humanGroup.add(groundReticle);
+
+      // Floor pulsing sonar disc
+      const groundDiscGeo = new THREE.CircleGeometry(0.5, 32);
+      const groundDiscMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, side: THREE.DoubleSide, transparent: true, opacity: 0.22 });
+      groundDisc = new THREE.Mesh(groundDiscGeo, groundDiscMat);
+      groundDisc.rotation.x = -Math.PI / 2;
+      groundDisc.position.y = 0.015;
+      humanGroup.add(groundDisc);
+
+      // Vertical Locator Light Pillar
+      const pillarGeo = new THREE.CylinderGeometry(0.015, 0.015, 2.2, 8);
+      const pillarMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 });
+      const pillarMesh = new THREE.Mesh(pillarGeo, pillarMat);
+      pillarMesh.position.y = 1.1;
+      humanGroup.add(pillarMesh);
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // Secondary 17-Keypoint DensePose Human Skeleton (Amber/Emerald Theme)
+      // ─────────────────────────────────────────────────────────────────────────
+      humanGroup2 = new THREE.Group();
+      humanGroup2.position.set(0, 0, 0);
+      humanGroup2.visible = false;
+      threeScene.add(humanGroup2);
+
+      const jointMat2 = new THREE.MeshStandardMaterial({
+        color: 0xf59e0b,
+        emissive: 0xd97706,
+        roughness: 0.15,
+        metalness: 0.85
+      });
+
+      JOINT_NAMES.forEach(jName => {
+        const mesh = new THREE.Mesh(jointGeo, jointMat2);
+        const off = DEFAULT_KEYPOINT_OFFSETS[jName];
+        mesh.position.set(off.x, off.y, off.z);
+        humanGroup2.add(mesh);
+        jointMeshes2[jName] = mesh;
+      });
+
+      const boneLineGeo2 = new THREE.BufferGeometry();
+      boneLineGeo2.setAttribute('position', new THREE.BufferAttribute(new Float32Array(COCO_PAIRS.length * 6), 3));
+      const boneLineMat2 = new THREE.LineBasicMaterial({
+        color: 0x10b981,
+        linewidth: 2.5,
+        transparent: true,
+        opacity: 0.95
+      });
+      boneLines2 = new THREE.LineSegments(boneLineGeo2, boneLineMat2);
+      humanGroup2.add(boneLines2);
+      updateBoneGeometry2();
+
+      const chestGeo2 = new THREE.BoxGeometry(0.52, 0.62, 0.32);
+      const chestMat2 = new THREE.MeshBasicMaterial({
+        color: 0xf59e0b,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.5
+      });
+      chestBreathMesh2 = new THREE.Mesh(chestGeo2, chestMat2);
+      chestBreathMesh2.position.set(0, 1.3, 0);
+      humanGroup2.add(chestBreathMesh2);
+
+      const visorGeo2 = new THREE.TorusGeometry(0.24, 0.02, 8, 24);
+      const visorMat2 = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+      visorMesh2 = new THREE.Mesh(visorGeo2, visorMat2);
+      visorMesh2.position.set(0, 1.72, 0);
+      visorMesh2.rotation.x = Math.PI / 2;
+      humanGroup2.add(visorMesh2);
+
+      const groundReticleGeo2 = new THREE.RingGeometry(0.5, 0.58, 36);
+      const groundReticleMat2 = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
+      groundReticle2 = new THREE.Mesh(groundReticleGeo2, groundReticleMat2);
+      groundReticle2.rotation.x = -Math.PI / 2;
+      groundReticle2.position.y = 0.02;
+      humanGroup2.add(groundReticle2);
+
+      const groundDiscGeo2 = new THREE.CircleGeometry(0.5, 32);
+      const groundDiscMat2 = new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide, transparent: true, opacity: 0.22 });
+      groundDisc2 = new THREE.Mesh(groundDiscGeo2, groundDiscMat2);
+      groundDisc2.rotation.x = -Math.PI / 2;
+      groundDisc2.position.y = 0.015;
+      humanGroup2.add(groundDisc2);
+
+      const pillarMesh2 = new THREE.Mesh(pillarGeo, new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.35 }));
+      pillarMesh2.position.y = 1.1;
+      humanGroup2.add(pillarMesh2);
+
+      threeInitialized = true;
+    }
+
+    const TX_VEC_1 = new THREE.Vector3(-1.7, 2.25, -1.2);
+    const TX_VEC_2 = new THREE.Vector3(1.7, 2.25, -1.2);
+    const TX_VEC_3 = new THREE.Vector3(0.0, 2.25, 1.6);
+
+    function animateThree(timestamp) {
+      if (!threeInitialized) return;
+
+      const time = timestamp * 0.001;
+      walkPhase += 0.08;
+      breathPhase += 0.04;
+
+      const pCount = targetState.personCount !== undefined ? targetState.personCount : 1;
+      if (pCount === 0) {
+        if (humanGroup) humanGroup.visible = false;
+        if (humanGroup2) humanGroup2.visible = false;
+        if (dynamicScatterRay) dynamicScatterRay.visible = false;
+      } else {
+        if (humanGroup) humanGroup.visible = true;
+        if (dynamicScatterRay) dynamicScatterRay.visible = true;
+      }
+
+      // Smoothly Glide 3D Human Avatar #1 (Primary)
+      const dx = target3DPos.x - current3DPos.x;
+      const dz = target3DPos.z - current3DPos.z;
+      const moveDist = Math.sqrt(dx * dx + dz * dz);
+      const isWalking = moveDist > 0.05;
+
+      current3DPos.x += dx * 0.14;
+      current3DPos.z += dz * 0.14;
+      if (humanGroup) {
+        humanGroup.position.set(current3DPos.x, 0.0, current3DPos.z);
+        if (isWalking) {
+          const targetAngle = Math.atan2(dx, dz);
+          humanGroup.rotation.y += (targetAngle - humanGroup.rotation.y) * 0.15;
+        }
+      }
+
+      // Secondary 3D Human Skeleton (Amber/Emerald) for person_count >= 2
+      if (pCount >= 2 && targetState.persons && targetState.persons.length >= 2) {
+        if (humanGroup2) humanGroup2.visible = true;
+        const p2 = targetState.persons[1];
+        target3DPos2.x = p2.three_x;
+        target3DPos2.z = p2.three_z;
+
+        const dx2 = target3DPos2.x - current3DPos2.x;
+        const dz2 = target3DPos2.z - current3DPos2.z;
+        current3DPos2.x += dx2 * 0.14;
+        current3DPos2.z += dz2 * 0.14;
+        if (humanGroup2) {
+          humanGroup2.position.set(current3DPos2.x, 0.0, current3DPos2.z);
+          if (Math.hypot(dx2, dz2) > 0.05) {
+            const targetAngle2 = Math.atan2(dx2, dz2);
+            humanGroup2.rotation.y += (targetAngle2 - humanGroup2.rotation.y) * 0.15;
+          }
+        }
+        if (p2.keypoints) {
+          updateSkeletonFromKeypoints2(p2.keypoints);
+        } else {
+          updateBoneGeometry2();
+        }
+        if (groundDisc2) {
+          const s2 = 1.0 + Math.sin(breathPhase * 2.5 + 1.2) * 0.15;
+          groundDisc2.scale.set(s2, s2, s2);
+        }
+        if (groundReticle2) {
+          groundReticle2.rotation.z -= 0.02;
+        }
+      } else {
+        if (humanGroup2) humanGroup2.visible = false;
+      }
+
+      // Kinematics & Breathing
+      const chestScale = 1.0 + Math.sin(breathPhase) * 0.055;
+      if (chestBreathMesh) chestBreathMesh.scale.set(chestScale, chestScale, chestScale);
+
+      if (isWalking) {
+        const stride = Math.sin(walkPhase * 1.8) * 0.32;
+        if (jointMeshes.left_knee && jointMeshes.left_ankle) {
+          jointMeshes.left_knee.position.z = DEFAULT_KEYPOINT_OFFSETS.left_knee.z + stride;
+          jointMeshes.left_ankle.position.z = DEFAULT_KEYPOINT_OFFSETS.left_ankle.z + stride * 1.3;
+        }
+        if (jointMeshes.right_knee && jointMeshes.right_ankle) {
+          jointMeshes.right_knee.position.z = DEFAULT_KEYPOINT_OFFSETS.right_knee.z - stride;
+          jointMeshes.right_ankle.position.z = DEFAULT_KEYPOINT_OFFSETS.right_ankle.z - stride * 1.3;
+        }
+      } else {
+        const sway = Math.sin(breathPhase * 0.8) * 0.025;
+        if (jointMeshes.nose) jointMeshes.nose.position.x = DEFAULT_KEYPOINT_OFFSETS.nose.x + sway;
+      }
+      updateBoneGeometry();
+
+      // Animate 3D Human Ground Targeting Reticle & Sonar Disc
+      if (groundDisc) {
+        const s = 1.0 + Math.sin(breathPhase * 2.5) * 0.15;
+        groundDisc.scale.set(s, s, s);
+      }
+      if (groundReticle) {
+        groundReticle.rotation.z += 0.02;
+      }
+
+      // Expanding 3D Wavefront Torus Rings
+      Object.keys(waveRings).forEach(tag => {
+        const rings = waveRings[tag];
+        const isAct = (NODES[tag]?.isActive || (targetState.activeNode === tag && targetState.isInside));
+        rings.forEach((ring, idx) => {
+          const expandSpeed = isAct ? 1.5 : 0.85;
+          let r = ((time * expandSpeed + idx * 1.6) % 4.8);
+          ring.scale.set(r, r, r);
+          ring.material.opacity = Math.max(0.02, (1.0 - (r / 4.8)) * (isAct ? 0.65 : 0.22));
+        });
+      });
+
+      // Scatter Ray
+      if (dynamicScatterRay) {
+        if (!hasTarget) {
+          dynamicScatterRay.visible = false;
+        } else {
+          dynamicScatterRay.visible = true;
+          let activeTx = TX_VEC_1;
+          let activeColor = 0x22d3ee;
+          if (targetState.activeNode === 'node_2') {
+            activeTx = TX_VEC_2;
+            activeColor = 0xfbbf24;
+          } else if (targetState.activeNode === 'node_3') {
+            activeTx = TX_VEC_3;
+            activeColor = 0xf87171;
+          }
+          const rayAttr = dynamicScatterRay.geometry.attributes.position;
+          if (rayAttr && rayAttr.array) {
+            const arr = rayAttr.array;
+            arr[0] = activeTx.x; arr[1] = activeTx.y; arr[2] = activeTx.z;
+            arr[3] = current3DPos.x; arr[4] = 1.35;   arr[5] = current3DPos.z;
+            arr[6] = 0.0;        arr[7] = 0.5;    arr[8] = 1.6;
+            rayAttr.needsUpdate = true;
+          }
+          dynamicScatterRay.material.color.setHex(activeColor);
+        }
+      }
+
+      if (threeControls) threeControls.update();
+      if (threeRenderer && threeScene && threeCamera) {
+        threeRenderer.render(threeScene, threeCamera);
+      }
+    }
+
+    function onWindowResizeThree() {
+      if (!threeRenderer || !threeCamera) return;
+      const wrap = document.getElementById('three-viewport-wrap');
+      if (!wrap) return;
+      const width = wrap.clientWidth;
+      const height = wrap.clientHeight;
+      if (width === 0 || height === 0) return;
+      threeCamera.aspect = width / height;
+      threeCamera.updateProjectionMatrix();
+      threeRenderer.setSize(width, height);
+      threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    }
+    window.addEventListener('resize', () => {
+      updateRoomCanvasDimensions();
+      onWindowResizeThree();
+      Object.keys(sparkCanvasCache).forEach(k => delete sparkCanvasCache[k]);
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // UNIFIED TAB-AWARE MASTER RENDER LOOP (PREVENTS DUAL-LOOP MEMORY LEAK & FREEZE)
+    // ─────────────────────────────────────────────────────────────────────────
+    function masterRenderLoop(timestamp) {
+      requestAnimationFrame(masterRenderLoop);
+      if (currentVisualizerTab === '2d') {
+        renderRoomMap();
+      } else if (currentVisualizerTab === '3d' && threeInitialized) {
+        animateThree(timestamp);
+      }
+      updateAllSparklines();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 11. INITIALIZATION ON WINDOW LOAD
+    // ─────────────────────────────────────────────────────────────────────────
+    window.onload = () => {
+      appendLog('system', 'RuView Real-Time Room WiFi Spatial Radar initialized.');
+      appendLog('system', 'AI Engine: ruvnet/wifi-densepose-pretrained (128-dim InfoNCE loaded).');
+      appendLog('system', 'Room Grid: 5.0m × 4.0m with 3 live ESP32 hardware nodes.');
+      initEmbeddingBars();
+      initSubcarrierBars();
+      initThreeScene();
+      setOperatingMode('ws');
+      requestAnimationFrame(masterRenderLoop);
+    };
+  </script>
+</body>
+</html>

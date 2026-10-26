@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RuView Live Map — cm-Level Tracking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --bg-dark: #060913;
+      --bg-card: #0b1120;
+      --bg-card-hover: #111827;
+      --border-color: #1e293b;
+      --border-glow: rgba(56, 189, 248, 0.25);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent-cyan: #22d3ee;
+      --accent-amber: #fbbf24;
+      --accent-rose: #f87171;
+      --accent-emerald: #34d399;
+      --accent-indigo: #818cf8;
+      --table-w: 1.0;
+      --table-l: 0.7;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 20% 15%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 80% 85%, rgba(245, 158, 11, 0.06) 0%, transparent 40%),
+        linear-gradient(to right, rgba(30, 41, 59, 0.25) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(30, 41, 59, 0.25) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b1120;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    /* Header */
+    header {
+      background: rgba(11, 17, 32, 0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(14, 165, 233, 0.35));
+      border: 1px solid rgba(34, 211, 238, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-cyan);
+      font-size: 20px;
+      box-shadow: inset 0 0 10px rgba(34, 211, 238, 0.2);
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-title span.grad {
+      background: linear-gradient(90deg, #22d3ee, #38bdf8, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      background: rgba(30, 41, 59, 0.7);
+      color: #cbd5e1;
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      cursor: pointer;
+    }
+
+    .nav-btn:hover {
+      background: rgba(51, 65, 85, 0.9);
+      color: #ffffff;
+      border-color: rgba(148, 163, 184, 0.5);
+    }
+
+    .nav-btn.active {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #ffffff;
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      background: #020617;
+      border: 1px solid #1e293b;
+    }
+
+    .dot-live {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      padding: 20px;
+      max-width: 1720px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Top ESP Summary Cards */
+    .esp-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+
+    .esp-card {
+      background: rgba(11, 17, 32, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .esp-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--card-accent, #38bdf8);
+      box-shadow: 0 0 10px var(--card-accent, #38bdf8);
+    }
+
+    .esp-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .esp-id-tag {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .esp-chip-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--card-accent, #38bdf8);
+      color: var(--card-accent, #38bdf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+
+    .esp-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .esp-model {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .esp-port-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-color);
+      color: var(--card-accent, #38bdf8);
+    }
+
+    .esp-card-body {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      background: #060913;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #1e293b;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .esp-meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .esp-meta-label {
+      font-size: 9px;
+      color: #64748b;
+      text-transform: uppercase;
+    }
+
+    .esp-meta-val {
+      font-size: 12px;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-top: 1px;
+    }
+
+    /* Map Canvas Layout & Controls */
+    .map-section {
+      background: rgba(11, 17, 32, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+    }
+
+    .map-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .map-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .map-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .map-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .map-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tool-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #020617;
+      padding: 4px 6px;
+      border-radius: 10px;
+      border: 1px solid #1e293b;
+    }
+
+    .tool-btn {
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      background: transparent;
+      border: 1px solid transparent;
+      color: #cbd5e1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .tool-btn:hover {
+      background: #1e293b;
+      color: #ffffff;
+    }
+
+    .tool-btn.active {
+      background: rgba(34, 211, 238, 0.15);
+      border-color: rgba(34, 211, 238, 0.4);
+      color: var(--accent-cyan);
+    }
+
+    /* Canvas Viewport */
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 640px;
+      background: #040711;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.85);
+    }
+
+    #map-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* Floating HUDs on Canvas */
+    .hud-floating {
+      position: absolute;
+      background: rgba(6, 9, 19, 0.88);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      pointer-events: none;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      z-index: 10;
+    }
+
+    .hud-top-left {
+      top: 14px;
+      left: 14px;
+      min-width: 220px;
+    }
+
+    .hud-top-right {
+      top: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .hud-bottom-right {
+      bottom: 14px;
+      right: 14px;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .hud-metric-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 4px;
+      font-size: 12px;
+    }
+
+    .hud-metric-val {
+      font-weight: 700;
+    }
+
+    .tag-empty {
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(100, 116, 139, 0.15);
+      border: 1px solid rgba(100, 116, 139, 0.4);
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .tag-tracking {
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.2);
+      border: 1px solid rgba(56, 189, 248, 0.6);
+      color: #38bdf8;
+      font-size: 11px;
+      font-weight: 700;
+      animation: pulse 1.2s infinite;
+    }
+
+    /* Preset Buttons Bar */
+    .preset-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(30, 41, 59, 0.8);
+      flex-wrap: wrap;
+    }
+
+    .preset-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .preset-buttons {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-preset {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      background: #020617;
+      border: 1px solid #1e293b;
+      color: #e2e8f0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-preset:hover {
+      background: #1e293b;
+      border-color: #38bdf8;
+      color: #38bdf8;
+      transform: translateY(-1px);
+    }
+
+    .btn-preset.danger {
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #f87171;
+    }
+
+    .btn-preset.danger:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: #f87171;
+    }
+
+    /* Calibration Overlay */
+    .calib-modal {
+      position: absolute;
+      inset: 0;
+      background: rgba(4, 7, 17, 0.94);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 40;
+      text-align: center;
+      transition: opacity 0.3s ease;
+    }
+
+    .calib-modal.hidden {
+      display: none;
+    }
+
+    .calib-spinner {
+      font-size: 40px;
+      color: var(--accent-cyan);
+      margin-bottom: 16px;
+      animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    .calib-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .calib-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      max-width: 480px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .calib-bar-wrap {
+      width: 100%;
+      max-width: 420px;
+      height: 10px;
+      background: #0f172a;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #334155;
+      margin-bottom: 12px;
+    }
+
+    .calib-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #22d3ee, #38bdf8, #34d399);
+      transition: width 0.1s linear;
+    }
+
+    .calib-status {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #38bdf8;
+      font-weight: 700;
+    }
+
+    /* Footer info */
+    footer {
+      padding: 12px 24px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    @media (max-width: 768px) {
+      .canvas-container {
+        height: 480px;
+      }
+      .esp-cards-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP HEADER -->
+  <header>
+    <div class="brand-section">
+      <div class="brand-icon">
+        <i class="fa-solid fa-satellite-dish"></i>
+      </div>
+      <div>
+        <div class="brand-title">
+          RuView: <span class="grad">Live Position Map</span>
+        </div>
+        <div class="brand-sub">
+          Physical ESP32 Transceiver Grid &amp; Real-Time Centimeter Object Localization
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation & Status -->
+    <div class="header-nav">
+      <button class="nav-btn active" id="btn-view-2d">
+        <i class="fa-solid fa-map-location-dot"></i> 2D Map
+      </button>
+      <a href="/" class="nav-btn" title="Open 3D RuView Observatory">
+        <i class="fa-solid fa-cube"></i> 3D Observatory
+      </a>
+      <a href="/dashboard" class="nav-btn" title="Full Exhibition Dashboard">
+        <i class="fa-solid fa-chart-line"></i> Dashboard
+      </a>
+      <a href="/pose-fusion" class="nav-btn" title="Dual-Modal Video + WiFi Pose Fusion">
+        <i class="fa-solid fa-person-rays"></i> Pose Fusion
+      </a>
+
+      <!-- Status Pill -->
+      <div class="status-badge" id="ws-status-badge">
+        <div class="dot-live" id="ws-status-dot"></div>
+        <span id="ws-status-text" style="color: var(--accent-emerald);">LIVE MESH (25Hz)</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN BODY -->
+  <main>
+
+    <!-- 1. PHYSICAL ESP32 HARDWARE NODES -->
+    <section class="esp-cards-grid">
+      
+      <!-- Node 1: ESP32-C3 #1 -->
+      <div class="esp-card" style="--card-accent: #22d3ee;" id="card-node_1">
+        <div class="esp-card-header">
+          <div class="esp-id-tag">
+            <div class="esp-chip-icon">
+              <i class="fa-solid fa-microchip"></i>
+            </div>
+            <div>
+              <div class="esp-name">ESP32-C3 SuperMini #1</div>
+              <div class="esp-model">Node 1 • Top Corner Apex</div>
+            </div>
+          </div>
+          <span class="esp-port-pill">COM6</span>
+        </div>
+        <div class="esp-card-body">
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">SSID / Ch</span>
+            <span class="esp-meta-val">Zone_1 / 1</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Position</span>
+            <span class="esp-meta-val">[50cm, 5cm]</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Live RSSI</span>
+            <span class="esp-meta-val" id="rssi-node_1" style="color: #22d3ee;">-65 dBm</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Var (σ²)</span>
+            <span class="esp-meta-val" id="var-node_1">0.0002</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Node 2: ESP32-C3 #2 -->
+      <div class="esp-card" style="--card-accent: #fbbf24;" id="card-node_2">
+        <div class="esp-card-header">
+          <div class="esp-id-tag">
+            <div class="esp-chip-icon">
+              <i class="fa-solid fa-microchip"></i>
+            </div>
+            <div>
+              <div class="esp-name">ESP32-C3 SuperMini #2</div>
+              <div class="esp-model">Node 2 • Bottom-Right Corner</div>
+            </div>
+          </div>
+          <span class="esp-port-pill">COM7</span>
+        </div>
+        <div class="esp-card-body">
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">SSID / Ch</span>
+            <span class="esp-meta-val">Zone_2 / 6</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Position</span>
+            <span class="esp-meta-val">[76cm, 50cm]</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Live RSSI</span>
+            <span class="esp-meta-val" id="rssi-node_2" style="color: #fbbf24;">-62 dBm</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Var (σ²)</span>
+            <span class="esp-meta-val" id="var-node_2">0.0002</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Node 3: Standard ESP32 DevKit V1 -->
+      <div class="esp-card" style="--card-accent: #f87171;" id="card-node_3">
+        <div class="esp-card-header">
+          <div class="esp-id-tag">
+            <div class="esp-chip-icon">
+              <i class="fa-solid fa-tower-broadcast"></i>
+            </div>
+            <div>
+              <div class="esp-name">Standard ESP32 DevKit</div>
+              <div class="esp-model">Node 3 • Rx Hub + LEDs</div>
+            </div>
+          </div>
+          <span class="esp-port-pill">COM11</span>
+        </div>
+        <div class="esp-card-body">
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">SSID / Ch</span>
+            <span class="esp-meta-val">Zone_3 / 11</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Position</span>
+            <span class="esp-meta-val">[24cm, 50cm]</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Live RSSI</span>
+            <span class="esp-meta-val" id="rssi-node_3" style="color: #f87171;">-58 dBm</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">LED Actuators</span>
+            <span class="esp-meta-val" style="color: #4ade80;">GPIO 2,4,5</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Node 4: Mobile Hotspot Centroid Reference -->
+      <div class="esp-card" style="--card-accent: #818cf8;" id="card-node_4">
+        <div class="esp-card-header">
+          <div class="esp-id-tag">
+            <div class="esp-chip-icon">
+              <i class="fa-solid fa-wifi"></i>
+            </div>
+            <div>
+              <div class="esp-name">Centroid Reference</div>
+              <div class="esp-model">Node 4 • Mobile Hotspot</div>
+            </div>
+          </div>
+          <span class="esp-port-pill" style="color: #818cf8;">Wi-Fi AP</span>
+        </div>
+        <div class="esp-card-body">
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">SSID / Ch</span>
+            <span class="esp-meta-val">Laptop_Hotspot</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Position</span>
+            <span class="esp-meta-val">[50cm, 35cm]</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Grid Center</span>
+            <span class="esp-meta-val" style="color: #818cf8;">Centroid C</span>
+          </div>
+          <div class="esp-meta-item">
+            <span class="esp-meta-label">Link Status</span>
+            <span class="esp-meta-val" style="color: #34d399;">Active</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 2. MAIN 2D TABLETOP CANVAS -->
+    <section class="map-section">
+      <div class="map-toolbar">
+        <div class="map-title-wrap">
+          <h2 class="map-title">
+            <i class="fa-solid fa-map-location text-cyan-400"></i>
+            2D Tabletop Wi-Fi Radar Map
+          </h2>
+          <span class="map-sub">100 cm (W) × 70 cm (L) Multi-Static RF Tomography Grid</span>
+        </div>
+
+        <!-- Layer Toggles -->
+        <div class="map-tools">
+          <div class="tool-group">
+            <button class="tool-btn active" id="toggle-esp" onclick="toggleLayer('esp')">
+              <i class="fa-solid fa-microchip"></i> ESP Nodes
+            </button>
+            <button class="tool-btn active" id="toggle-links" onclick="toggleLayer('links')">
+              <i class="fa-solid fa-arrows-split-up-and-left"></i> RF Links
+            </button>
+            <button class="tool-btn active" id="toggle-vectors" onclick="toggleLayer('vectors')">
+              <i class="fa-solid fa-ruler-combined"></i> Distances
+            </button>
+            <button class="tool-btn active" id="toggle-grid" onclick="toggleLayer('grid')">
+              <i class="fa-solid fa-border-all"></i> Metric Grid
+            </button>
+            <button class="tool-btn active" id="toggle-trail" onclick="toggleLayer('trail')">
+              <i class="fa-solid fa-route"></i> Trail
+            </button>
+          </div>
+
+          <button class="btn-preset" onclick="startCalibration(45)" title="Auto-Calibrate 45s (RSSI + Variance + CSI)">
+            <span>🔧</span> Auto-Calibrate 45s
+          </button>
+        </div>
+      </div>
+
+      <!-- Canvas Viewport with HUD Overlays -->
+      <div class="canvas-container" id="canvas-container">
+        <canvas id="map-canvas"></canvas>
+
+        <!-- Top Left Tracking HUD -->
+        <div class="hud-floating hud-top-left">
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 6px; margin-bottom: 6px;">
+            <span style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700;">
+              <i class="fa-solid fa-location-crosshairs text-cyan-400"></i> Spatial Tracking
+            </span>
+            <span id="hud-status-badge" class="tag-empty">QUIET (EMPTY)</span>
+          </div>
+          <div class="hud-metric-row">
+            <span style="color: #64748b;">Table X:</span>
+            <span class="hud-metric-val" id="hud-coord-x" style="color: #38bdf8;">--</span>
+          </div>
+          <div class="hud-metric-row">
+            <span style="color: #64748b;">Table Y:</span>
+            <span class="hud-metric-val" id="hud-coord-y" style="color: #34d399;">--</span>
+          </div>
+          <div class="hud-metric-row">
+            <span style="color: #64748b;">Confidence:</span>
+            <span class="hud-metric-val" id="hud-confidence" style="color: #fbbf24;">0%</span>
+          </div>
+          <div class="hud-metric-row">
+            <span style="color: #64748b;">Active Zone:</span>
+            <span class="hud-metric-val" id="hud-active-zone" style="color: #e2e8f0;">None</span>
+          </div>
+        </div>
+
+        <!-- Top Right Ranging Distance HUD -->
+        <div class="hud-floating hud-top-right" id="hud-distances-bar">
+          <div style="font-size: 11px;">
+            <span style="color: #64748b;">d(ESP1):</span>
+            <strong id="dist-esp1" style="color: #22d3ee;">-- cm</strong>
+          </div>
+          <div style="font-size: 11px;">
+            <span style="color: #64748b;">d(ESP2):</span>
+            <strong id="dist-esp2" style="color: #fbbf24;">-- cm</strong>
+          </div>
+          <div style="font-size: 11px;">
+            <span style="color: #64748b;">d(ESP3):</span>
+            <strong id="dist-esp3" style="color: #f87171;">-- cm</strong>
+          </div>
+        </div>
+
+        <!-- Bottom Right Interaction Tip -->
+        <div class="hud-floating hud-bottom-right">
+          <span>🖐️ Click &amp; drag anywhere on the map to test manual object positioning</span>
+        </div>
+
+        <!-- 30s Baseline Calibration Modal -->
+        <div class="calib-modal hidden" id="calib-modal">
+          <div class="calib-spinner">
+            <i class="fa-solid fa-compass-drafting"></i>
+          </div>
+          <h3 class="calib-title">Recording 30s Free-Space Baseline</h3>
+          <p class="calib-desc">
+            Please clear the table and room of people and moving objects. Measuring ambient RF signal power across all 3 ESP32 nodes to lock zero-clutter baseline.
+          </p>
+          <div class="calib-bar-wrap">
+            <div class="calib-bar-fill" id="calib-bar-fill"></div>
+          </div>
+          <div class="calib-status" id="calib-status-text">30.0s remaining (0%)</div>
+          <button class="btn-preset danger" style="margin-top: 16px;" onclick="cancelCalibration()">
+            Cancel Calibration
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Interactive Position Presets -->
+      <div class="preset-bar">
+        <div class="preset-label">
+          <i class="fa-solid fa-bullseye" style="color: var(--accent-cyan);"></i>
+          Quick Position Simulation Presets:
+        </div>
+        <div class="preset-buttons">
+          <button class="btn-preset" onclick="simulateLocation(0.50, 0.35, 'Center (Hotspot)')">
+            📍 Table Center (50cm, 35cm)
+          </button>
+          <button class="btn-preset" onclick="simulateLocation(0.50, 0.12, 'Near Node 1 (C3 #1)')">
+            📍 Near ESP1 [COM6] (50cm, 12cm)
+          </button>
+          <button class="btn-preset" onclick="simulateLocation(0.70, 0.45, 'Near Node 2 (C3 #2)')">
+            📍 Near ESP2 [COM7] (70cm, 45cm)
+          </button>
+          <button class="btn-preset" onclick="simulateLocation(0.30, 0.45, 'Near Node 3 (DevKit)')">
+            📍 Near ESP3 [COM11] (30cm, 45cm)
+          </button>
+          <button class="btn-preset" onclick="simulateLocation(0.50, 0.20, 'Spoke C->V1 Midpoint')">
+            📍 Spoke C→V1 (50cm, 20cm)
+          </button>
+          <button class="btn-preset" onclick="simulateLocation(0.61, 0.28, 'Off-Centerline Sector V1-V2-C')">
+            📍 Sector Δ(V1,V2,C) (61cm, 28cm)
+          </button>
+          <button class="btn-preset" onclick="simulateLocation(0.50, 0.50, 'Outer Edge V2<->V3')">
+            📍 Outer Edge V2↔V3 (50cm, 50cm)
+          </button>
+          <button class="btn-preset danger" onclick="clearSimulatedObject()">
+            🧹 Clear Object (Empty Table)
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <div>
+      RuView WiFi Spatial Intelligence • IEEE 802.11n 56-Subcarrier CSI Phase Ranging &amp; DensePose AI
+    </div>
+    <div>
+      Sensing Server: <span style="color: #38bdf8;">ws://localhost:3001/ws/sensing</span> • Serial Hub: <span style="color: #4ade80;">COM11 (LED Actuators GPIO 2,4,5)</span>
+    </div>
+  </footer>
+
+  <!-- 2D MAP RENDERING LOGIC -->
+  <script>
+    // Configuration & Geometry
+    const ROOM = {
+      width_m: 1.0,   // 100 cm width
+      length_m: 0.7,  // 70 cm length
+    };
+
+    // Hardware ESP Nodes
+    const ESP_NODES = {
+      node_1: {
+        id: 'node_1',
+        label: 'ESP32-C3 #1 (Top Corner)',
+        chip: 'ESP32-C3',
+        port: 'COM6',
+        ssid: 'Zone_1_Tx',
+        channel: 6,
+        pos_m: [0.50, 0.05], // (50cm, 5cm)
+        color: '#22d3ee',
+        role: 'Transceiver V1',
+        ledPin: 2,
+        rssi: -65,
+        variance: 0.0002,
+        active: false,
+      },
+      node_2: {
+        id: 'node_2',
+        label: 'ESP32-C3 #2 (Bottom-Right)',
+        chip: 'ESP32-C3',
+        port: 'COM7',
+        ssid: 'Zone_2_Tx',
+        channel: 6,
+        pos_m: [0.80, 0.57], // (80cm, 57cm)
+        color: '#fbbf24',
+        role: 'Transceiver V2',
+        ledPin: 4,
+        rssi: -62,
+        variance: 0.0002,
+        active: false,
+      },
+      node_3: {
+        id: 'node_3',
+        label: 'Standard ESP32 DevKit (Rx Hub)',
+        chip: 'ESP32-WROOM',
+        port: 'COM11',
+        ssid: 'Zone_3_Tx',
+        channel: 6,
+        pos_m: [0.20, 0.57], // (20cm, 57cm)
+        color: '#f87171',
+        role: 'Rx Hub & Actuator',
+        ledPin: 5,
+        rssi: -58,
+        variance: 0.0002,
+        active: false,
+      },
+      node_4: {
+        id: 'node_4',
+        label: 'Centroid Reference Hotspot',
+        chip: 'Hotspot',
+        port: 'Wi-Fi AP',
+        ssid: 'Laptop_Hotspot',
+        channel: 6,
+        pos_m: [0.50, 0.40], // (50cm, 40cm)
+        color: '#818cf8',
+        role: 'Centroid Reference',
+        ledPin: null,
+        rssi: -45,
+        variance: 0.0001,
+        active: false,
+      }
+    };
+
+    // Tracking State
+    const tracker = {
+      hasObject: false,
+      smoothX: 0.50,
+      smoothY: 0.35,
+      targetX: 0.50,
+      targetY: 0.35,
+      confidence: 0.0,
+      personCount: 0,
+      activeZone: 'none',
+      trail: [],
+      maxTrailLength: 35,
+      isDragging: false,
+    };
+
+    // Layer Visibility Flags
+    const layers = {
+      esp: true,
+      links: true,
+      vectors: true,
+      grid: true,
+      trail: true,
+    };
+
+    function toggleLayer(name) {
+      if (layers[name] !== undefined) {
+        layers[name] = !layers[name];
+        const btn = document.getElementById(`toggle-${name}`);
+        if (btn) {
+          if (layers[name]) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        }
+      }
+    }
+
+    // Canvas Setup
+    const canvas = document.getElementById('map-canvas');
+    const ctx = canvas.getContext('2d');
+    let animPhase = 0;
+    let cachedCanvasW = 800;
+    let cachedCanvasH = 500;
+    let cachedPad = { padLeft: 56, padRight: 56, padTop: 48, padBottom: 48 };
+
+    function updateCanvasSize() {
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      cachedCanvasW = Math.round(rect.width || canvas.clientWidth || 800);
+      cachedCanvasH = Math.round(rect.height || canvas.clientHeight || 500);
+      const isMobile = window.innerWidth < 768;
+      cachedPad = {
+        padLeft: isMobile ? 42 : 56,
+        padRight: isMobile ? 42 : 56,
+        padTop: isMobile ? 36 : 48,
+        padBottom: isMobile ? 36 : 48,
+      };
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== cachedCanvasW * dpr || canvas.height !== cachedCanvasH * dpr) {
+        canvas.width = cachedCanvasW * dpr;
+        canvas.height = cachedCanvasH * dpr;
+      }
+    }
+    updateCanvasSize();
+    window.addEventListener('resize', updateCanvasSize);
+
+    function getCanvasPad() {
+      return cachedPad;
+    }
+
+    function roomToCanvas(rx, ry) {
+      const w = cachedCanvasW;
+      const h = cachedCanvasH;
+      const pad = cachedPad;
+      const plotW = w - pad.padLeft - pad.padRight;
+      const plotH = h - pad.padTop - pad.padBottom;
+
+      const normX = Math.max(0, Math.min(1.0, rx / ROOM.width_m));
+      const normY = Math.max(0, Math.min(1.0, ry / ROOM.length_m));
+
+      return {
+        x: pad.padLeft + normX * plotW,
+        y: pad.padTop + normY * plotH,
+      };
+    }
+
+    function canvasToRoom(cx, cy) {
+      const w = cachedCanvasW;
+      const h = cachedCanvasH;
+      const pad = cachedPad;
+      const plotW = w - pad.padLeft - pad.padRight;
+      const plotH = h - pad.padTop - pad.padBottom;
+
+      const normX = (cx - pad.padLeft) / plotW;
+      const normY = (cy - pad.padTop) / plotH;
+
+      return {
+        rx: Math.max(0, Math.min(ROOM.width_m, normX * ROOM.width_m)),
+        ry: Math.max(0, Math.min(ROOM.length_m, normY * ROOM.length_m)),
+      };
+    }
+
+    // Main 60 FPS Render Loop
+    function render() {
+      const dpr = window.devicePixelRatio || 1;
+      const displayW = cachedCanvasW;
+      const displayH = cachedCanvasH;
+
+      if (canvas.width !== displayW * dpr || canvas.height !== displayH * dpr) {
+        canvas.width = displayW * dpr;
+        canvas.height = displayH * dpr;
+      }
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      animPhase += 0.04;
+
+      const w = displayW;
+      const h = displayH;
+      const pad = cachedPad;
+      const plotW = w - pad.padLeft - pad.padRight;
+      const plotH = h - pad.padTop - pad.padBottom;
+
+      // Clear viewport
+      ctx.clearRect(0, 0, w, h);
+
+      // Smooth Object Interpolation with deadband to eliminate micro-fluctuation
+      if (tracker.hasObject) {
+        const dx = tracker.targetX - tracker.smoothX;
+        const dy = tracker.targetY - tracker.smoothY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 0.0008) {
+          // Sub-millimeter deadband (0.8 mm) + zero-lag adaptive lerp for 0.1 cm precision
+          const lerpRate = dist > 0.04 ? 0.38 : Math.min(0.28, Math.max(0.12, dist * 3.5));
+          tracker.smoothX += dx * lerpRate;
+          tracker.smoothY += dy * lerpRate;
+        } else {
+          tracker.smoothX = tracker.targetX;
+          tracker.smoothY = tracker.targetY;
+        }
+
+        // Push to trail only when significant movement occurs
+        if (dist > 0.015 && animPhase % 0.16 < 0.05) {
+          tracker.trail.push({ x: tracker.smoothX, y: tracker.smoothY, alpha: 1.0 });
+          if (tracker.trail.length > tracker.maxTrailLength) {
+            tracker.trail.shift();
+          }
+        }
+      } else {
+        tracker.trail = [];
+      }
+
+      // 1. Draw Tabletop Base
+      ctx.fillStyle = '#080d1a';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(pad.padLeft, pad.padTop, plotW, plotH, 16);
+      } else {
+        ctx.rect(pad.padLeft, pad.padTop, plotW, plotH);
+      }
+      ctx.fill();
+
+      // Outer boundary stroke
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
+
+      // Subtle ambient perimeter glow
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.18)';
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(pad.padLeft + 3, pad.padTop + 3, plotW - 6, plotH - 6, 14);
+      } else {
+        ctx.rect(pad.padLeft + 3, pad.padTop + 3, plotW - 6, plotH - 6);
+      }
+      ctx.stroke();
+
+      // 2. Metric Grid (Centimeter lines every 10cm)
+      if (layers.grid) {
+        ctx.strokeStyle = 'rgba(30, 41, 59, 0.55)';
+        ctx.lineWidth = 1.0;
+        ctx.setLineDash([3, 4]);
+
+        // Vertical lines (every 10cm on 100cm width)
+        for (let cm = 10; cm < 100; cm += 10) {
+          const pt = roomToCanvas(cm / 100, 0);
+          ctx.beginPath();
+          ctx.moveTo(pt.x, pad.padTop);
+          ctx.lineTo(pt.x, pad.padTop + plotH);
+          ctx.stroke();
+
+          // Axis label
+          ctx.fillStyle = '#475569';
+          ctx.font = '9px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${cm}`, pt.x, pad.padTop - 8);
+        }
+
+        // Horizontal lines (every 10cm on 70cm length)
+        for (let cm = 10; cm < 70; cm += 10) {
+          const pt = roomToCanvas(0, cm / 100);
+          ctx.beginPath();
+          ctx.moveTo(pad.padLeft, pt.y);
+          ctx.lineTo(pad.padLeft + plotW, pt.y);
+          ctx.stroke();
+
+          // Axis label
+          ctx.fillStyle = '#475569';
+          ctx.font = '9px "JetBrains Mono", monospace';
+          ctx.textAlign = 'right';
+          ctx.fillText(`${cm}`, pad.padLeft - 8, pt.y + 3);
+        }
+        ctx.setLineDash([]);
+      }
+
+      // 3. RF Sensing Links (Beams connecting nodes)
+      if (layers.links) {
+        const links = [
+          ['node_1', 'node_3'],
+          ['node_2', 'node_3'],
+          ['node_1', 'node_2'],
+          ['node_1', 'node_4'],
+          ['node_2', 'node_4'],
+          ['node_3', 'node_4'],
+        ];
+
+        links.forEach(([srcKey, dstKey]) => {
+          const src = ESP_NODES[srcKey];
+          const dst = ESP_NODES[dstKey];
+          if (!src || !dst) return;
+
+          const p1 = roomToCanvas(src.pos_m[0], src.pos_m[1]);
+          const p2 = roomToCanvas(dst.pos_m[0], dst.pos_m[1]);
+
+          // Check if tracked object is near this link beam (RF shadowing)
+          let linkDisturbed = false;
+          if (tracker.hasObject) {
+            const objPt = roomToCanvas(tracker.smoothX, tracker.smoothY);
+            const distToBeam = distancePointToSegment(objPt.x, objPt.y, p1.x, p1.y, p2.x, p2.y);
+            if (distToBeam < 38) {
+              linkDisturbed = true;
+            }
+          }
+
+          // Link Line
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          if (linkDisturbed) {
+            ctx.strokeStyle = 'rgba(245, 158, 11, 0.75)';
+            ctx.lineWidth = 2.4;
+            ctx.shadowColor = '#f59e0b';
+            ctx.shadowBlur = 8;
+          } else {
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+            ctx.lineWidth = 1.4;
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+          }
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          // Traveling photon packet animation along the beam
+          const packetPhase = (animPhase * 1.2 + (srcKey.charCodeAt(5) * 0.3)) % 1.0;
+          const px = p1.x + (p2.x - p1.x) * packetPhase;
+          const py = p1.y + (p2.y - p1.y) * packetPhase;
+
+          ctx.beginPath();
+          ctx.arc(px, py, linkDisturbed ? 3.5 : 2.2, 0, Math.PI * 2);
+          ctx.fillStyle = linkDisturbed ? '#fbbf24' : '#38bdf8';
+          ctx.fill();
+        });
+      }
+
+      // 4. Distance Ranging Vectors (from each ESP node to object)
+      if (layers.vectors && tracker.hasObject) {
+        const objPt = roomToCanvas(tracker.smoothX, tracker.smoothY);
+
+        ['node_1', 'node_2', 'node_3'].forEach(k => {
+          const node = ESP_NODES[k];
+          const nodePt = roomToCanvas(node.pos_m[0], node.pos_m[1]);
+
+          // Distance in cm
+          const dx = (tracker.smoothX - node.pos_m[0]) * 100;
+          const dy = (tracker.smoothY - node.pos_m[1]) * 100;
+          const distCm = Math.sqrt(dx * dx + dy * dy);
+
+          // Draw dashed distance line
+          ctx.beginPath();
+          ctx.setLineDash([4, 4]);
+          ctx.moveTo(nodePt.x, nodePt.y);
+          ctx.lineTo(objPt.x, objPt.y);
+          ctx.strokeStyle = node.color;
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Distance tag at midpoint
+          const midX = (nodePt.x + objPt.x) / 2;
+          const midY = (nodePt.y + objPt.y) / 2;
+          const distStr = `${distCm.toFixed(1)}cm`;
+
+          ctx.font = 'bold 10px "JetBrains Mono", monospace';
+          const txtW = ctx.measureText(distStr).width;
+          
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+          ctx.fillRect(midX - txtW / 2 - 4, midY - 8, txtW + 8, 16);
+          ctx.strokeStyle = node.color;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(midX - txtW / 2 - 4, midY - 8, txtW + 8, 16);
+
+          ctx.fillStyle = node.color;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(distStr, midX, midY);
+
+          // Update Top Right HUD metric
+          const distEl = document.getElementById(`dist-esp${k.replace('node_', '')}`);
+          if (distEl) distEl.textContent = `${distCm.toFixed(1)} cm`;
+        });
+      } else {
+        // Clear distance labels if no object
+        ['1', '2', '3'].forEach(i => {
+          const el = document.getElementById(`dist-esp${i}`);
+          if (el) el.textContent = '-- cm';
+        });
+      }
+
+      // 5. Motion Trail Breadcrumbs
+      if (layers.trail && tracker.trail.length > 1) {
+        ctx.beginPath();
+        tracker.trail.forEach((tPt, idx) => {
+          const pt = roomToCanvas(tPt.x, tPt.y);
+          if (idx === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+        ctx.lineWidth = 3.0;
+        ctx.stroke();
+
+        tracker.trail.forEach((tPt, idx) => {
+          const pt = roomToCanvas(tPt.x, tPt.y);
+          const ratio = (idx + 1) / tracker.trail.length;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 2.5 * ratio, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(56, 189, 248, ${0.15 + 0.65 * ratio})`;
+          ctx.fill();
+        });
+      }
+
+      // 6. Object Position Marker
+      if (tracker.hasObject) {
+        const objPt = roomToCanvas(tracker.smoothX, tracker.smoothY);
+
+        // Ambient radial glow
+        const glowGrad = ctx.createRadialGradient(objPt.x, objPt.y, 2, objPt.x, objPt.y, 36);
+        glowGrad.addColorStop(0, 'rgba(56, 189, 248, 0.7)');
+        glowGrad.addColorStop(0.5, 'rgba(56, 189, 248, 0.2)');
+        glowGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(objPt.x, objPt.y, 36, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pulsing radar ring
+        const ringR = 10 + (animPhase * 24) % 24;
+        const ringAlpha = Math.max(0, 1.0 - ringR / 34);
+        ctx.beginPath();
+        ctx.arc(objPt.x, objPt.y, ringR, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(56, 189, 248, ${ringAlpha})`;
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        // Crosshairs
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(objPt.x - 14, objPt.y);
+        ctx.lineTo(objPt.x + 14, objPt.y);
+        ctx.moveTo(objPt.x, objPt.y - 14);
+        ctx.lineTo(objPt.x, objPt.y + 14);
+        ctx.stroke();
+
+        // Outer Reticle Ring
+        ctx.beginPath();
+        ctx.arc(objPt.x, objPt.y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = '#0b1120';
+        ctx.fill();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+
+        // Glowing Solid Core Dot
+        ctx.beginPath();
+        ctx.arc(objPt.x, objPt.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+
+        // 95% Confidence / Uncertainty Circle (Sub-Centimeter Lock)
+        const uncCm = (tracker.uncertaintyM || 0.008) * 100;
+        const uncPx = Math.max(12, (uncCm / 100) * (plotW / ROOM.width_m));
+        ctx.beginPath();
+        ctx.setLineDash([3, 3]);
+        ctx.arc(objPt.x, objPt.y, uncPx, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(52, 211, 153, 0.55)";
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Coordinate Floating Tag (0.1 cm resolution)
+        const cmX = (tracker.smoothX * 100).toFixed(1);
+        const cmY = (tracker.smoothY * 100).toFixed(1);
+        const objLabel = `Object [X: ${cmX}cm, Y: ${cmY}cm | ±${uncCm.toFixed(1)}cm]`;
+
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        const labelW = ctx.measureText(objLabel).width;
+        const tagH = 22;
+        const tagW = labelW + 16;
+        let tagX = objPt.x - tagW / 2;
+        let tagY = objPt.y - tagH - 16;
+
+        // Boundary safety
+        if (tagX < pad.padLeft + 6) tagX = pad.padLeft + 6;
+        if (tagX + tagW > w - pad.padRight - 6) tagX = w - pad.padRight - tagW - 6;
+        if (tagY < pad.padTop + 6) tagY = objPt.y + 18;
+
+        ctx.fillStyle = 'rgba(11, 17, 32, 0.94)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(tagX, tagY, tagW, tagH, 6);
+        else ctx.rect(tagX, tagY, tagW, tagH);
+        ctx.fill();
+
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(objLabel, tagX + tagW / 2, tagY + tagH / 2);
+      }
+
+      // 7. Draw Physical ESP Hardware Nodes
+      if (layers.esp) {
+        Object.values(ESP_NODES).forEach(node => {
+          const pt = roomToCanvas(node.pos_m[0], node.pos_m[1]);
+
+          // Wi-Fi Broadcast Waves
+          const waveR = 14 + (animPhase * 18 + (node.channel * 10)) % 22;
+          const waveAlpha = Math.max(0, 1.0 - waveR / 36);
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, waveR, 0, Math.PI * 2);
+          ctx.strokeStyle = `${node.color}${Math.round(waveAlpha * 180).toString(16).padStart(2, '0')}`;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          // Outer Halo
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 14, 0, Math.PI * 2);
+          ctx.fillStyle = '#060913';
+          ctx.fill();
+          ctx.strokeStyle = node.color;
+          ctx.lineWidth = 2.4;
+          ctx.stroke();
+
+          // Center Antenna Dot
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+          ctx.fillStyle = node.color;
+          ctx.fill();
+
+          // ESP Label Pill (Port & Role)
+          const isTop = node.pos_m[1] < 0.25;
+          const isLeft = node.pos_m[0] < 0.40;
+          const isRight = node.pos_m[0] > 0.60;
+
+          const titleText = `${node.chip} [${node.port}]`;
+          const subText = `${node.label} (${Math.round(node.pos_m[0]*100)}cm, ${Math.round(node.pos_m[1]*100)}cm)`;
+
+          ctx.font = 'bold 11px "Inter", sans-serif';
+          const tW = ctx.measureText(titleText).width;
+          ctx.font = '10px "JetBrains Mono", monospace';
+          const sW = ctx.measureText(subText).width;
+          const badgeW = Math.max(tW, sW) + 16;
+          const badgeH = 34;
+
+          let bX = pt.x - badgeW / 2;
+          let bY = isTop ? (pt.y + 22) : (pt.y - badgeH - 22);
+
+          if (isLeft && !isTop) {
+            bX = pt.x - badgeW / 2;
+          } else if (isRight && !isTop) {
+            bX = pt.x - badgeW / 2;
+          }
+
+          // Boundary checks
+          if (bX < pad.padLeft + 4) bX = pad.padLeft + 4;
+          if (bX + badgeW > w - pad.padRight - 4) bX = w - pad.padRight - badgeW - 4;
+
+          // Draw Badge Container
+          ctx.fillStyle = 'rgba(11, 17, 32, 0.94)';
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(bX, bY, badgeW, badgeH, 8);
+          else ctx.rect(bX, bY, badgeW, badgeH);
+          ctx.fill();
+
+          ctx.strokeStyle = node.color;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          // Badge Texts
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.font = 'bold 11px "Inter", sans-serif';
+          ctx.fillStyle = node.color;
+          ctx.fillText(titleText, bX + badgeW / 2, bY + 5);
+
+          ctx.font = '9px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText(subText, bX + badgeW / 2, bY + 19);
+        });
+      }
+
+      ctx.restore();
+      requestAnimationFrame(render);
+    }
+
+    // Math helper: distance from point to segment
+    function distancePointToSegment(px, py, x1, y1, x2, y2) {
+      const l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+      if (l2 === 0) return Math.hypot(px - x1, py - y1);
+      let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+      t = Math.max(0, Math.min(1, t));
+      return Math.hypot(px - (x1 + t * (x2 - x1)), py - (y1 + t * (y2 - y1)));
+    }
+
+    // Interactive Dragging on Canvas
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const roomCoords = canvasToRoom(clickX, clickY);
+
+      tracker.isDragging = true;
+      tracker.hasObject = true;
+      tracker.targetX = roomCoords.rx;
+      tracker.targetY = roomCoords.ry;
+      tracker.smoothX = roomCoords.rx;
+      tracker.smoothY = roomCoords.ry;
+      tracker.confidence = 0.96;
+      tracker.personCount = 1;
+      tracker.activeZone = 'interactive';
+
+      updateHUDUI(true, tracker.targetX, tracker.targetY, tracker.confidence, 'Interactive Touch');
+      sendManualTarget(tracker.targetX, tracker.targetY);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!tracker.isDragging) return;
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const roomCoords = canvasToRoom(clickX, clickY);
+
+      tracker.targetX = roomCoords.rx;
+      tracker.targetY = roomCoords.ry;
+      updateHUDUI(true, tracker.targetX, tracker.targetY, tracker.confidence, 'Interactive Touch');
+      sendManualTarget(tracker.targetX, tracker.targetY);
+    });
+
+    window.addEventListener('mouseup', () => {
+      tracker.isDragging = false;
+    });
+
+    // Touch Support for Mobile / Tablets
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        const rect = canvas.getBoundingClientRect();
+        const touchX = e.touches[0].clientX - rect.left;
+        const touchY = e.touches[0].clientY - rect.top;
+        const roomCoords = canvasToRoom(touchX, touchY);
+
+        tracker.isDragging = true;
+        tracker.hasObject = true;
+        tracker.targetX = roomCoords.rx;
+        tracker.targetY = roomCoords.ry;
+        tracker.smoothX = roomCoords.rx;
+        tracker.smoothY = roomCoords.ry;
+        tracker.confidence = 0.96;
+        tracker.personCount = 1;
+
+        updateHUDUI(true, tracker.targetX, tracker.targetY, tracker.confidence, 'Interactive Touch');
+        sendManualTarget(tracker.targetX, tracker.targetY);
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (tracker.isDragging && e.touches.length === 1) {
+        const rect = canvas.getBoundingClientRect();
+        const touchX = e.touches[0].clientX - rect.left;
+        const touchY = e.touches[0].clientY - rect.top;
+        const roomCoords = canvasToRoom(touchX, touchY);
+
+        tracker.targetX = roomCoords.rx;
+        tracker.targetY = roomCoords.ry;
+        updateHUDUI(true, tracker.targetX, tracker.targetY, tracker.confidence, 'Interactive Touch');
+        sendManualTarget(tracker.targetX, tracker.targetY);
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', () => {
+      tracker.isDragging = false;
+    });
+
+    // Preset Simulation Handlers
+    function simulateLocation(rx, ry, label) {
+      tracker.hasObject = true;
+      tracker.targetX = rx;
+      tracker.targetY = ry;
+      tracker.confidence = 0.95;
+      tracker.personCount = 1;
+      tracker.activeZone = label;
+
+      updateHUDUI(true, rx, ry, tracker.confidence, label);
+      sendManualTarget(rx, ry);
+    }
+
+    function clearSimulatedObject() {
+      tracker.hasObject = false;
+      tracker.personCount = 0;
+      tracker.confidence = 0.0;
+      tracker.trail = [];
+      updateHUDUI(false, 0, 0, 0, 'None');
+
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({
+          action: 'set_person_count',
+          count: 0
+        }));
+      }
+    }
+
+    function updateHUDUI(hasObj, rx, ry, conf, zone) {
+      const badge = document.getElementById('hud-status-badge');
+      const cX = document.getElementById('hud-coord-x');
+      const cY = document.getElementById('hud-coord-y');
+      const cConf = document.getElementById('hud-confidence');
+      const cZone = document.getElementById('hud-active-zone');
+
+      if (hasObj) {
+        if (badge) {
+          badge.className = 'tag-tracking';
+          badge.textContent = '1 OBJECT TRACKED';
+        }
+        if (cX) cX.textContent = `${(rx * 100).toFixed(1)} cm`;
+        if (cY) cY.textContent = `${(ry * 100).toFixed(1)} cm`;
+        if (cConf) cConf.textContent = `${Math.round(conf * 100)}%`;
+        if (cZone) cZone.textContent = zone || 'Grid Center';
+      } else {
+        if (badge) {
+          badge.className = 'tag-empty';
+          badge.textContent = 'QUIET (EMPTY)';
+        }
+        if (cX) cX.textContent = '--';
+        if (cY) cY.textContent = '--';
+        if (cConf) cConf.textContent = '0%';
+        if (cZone) cZone.textContent = 'None';
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LIVE WEBSOCKET COMMUNICATION (Auto-Connect to Sensing Server)
+    // ─────────────────────────────────────────────────────────────────────────
+    let wsInstance = null;
+    let wsReconnectTimer = null;
+
+    function initWebSocket() {
+      if (wsInstance) {
+        try { wsInstance.close(); } catch (e) {}
+      }
+
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.hostname || 'localhost';
+      const port = window.location.port || '3000';
+      const wsUrl = `${proto}//${host}:${port}/ws/sensing`;
+
+      try {
+        wsInstance = new WebSocket(wsUrl);
+      } catch (e) {
+        scheduleReconnect();
+        return;
+      }
+
+      wsInstance.onopen = () => {
+        updateWsBadge(true);
+        if (wsReconnectTimer) {
+          clearTimeout(wsReconnectTimer);
+          wsReconnectTimer = null;
+        }
+      };
+
+      wsInstance.onclose = () => {
+        updateWsBadge(false);
+        scheduleReconnect();
+      };
+
+      wsInstance.onerror = () => {
+        updateWsBadge(false);
+      };
+
+      wsInstance.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleServerMessage(msg);
+        } catch (e) {}
+      };
+    }
+
+    function scheduleReconnect() {
+      if (wsReconnectTimer) return;
+      wsReconnectTimer = setTimeout(() => {
+        wsReconnectTimer = null;
+        initWebSocket();
+      }, 2500);
+    }
+
+    function updateWsBadge(online) {
+      const dot = document.getElementById('ws-status-dot');
+      const text = document.getElementById('ws-status-text');
+      if (online) {
+        if (dot) dot.style.background = 'var(--accent-emerald)';
+        if (text) {
+          text.textContent = 'LIVE MESH (25Hz)';
+          text.style.color = 'var(--accent-emerald)';
+        }
+      } else {
+        if (dot) dot.style.background = 'var(--accent-rose)';
+        if (text) {
+          text.textContent = 'CONNECTING...';
+          text.style.color = 'var(--accent-rose)';
+        }
+      }
+    }
+
+    function handleServerMessage(msg) {
+      // 1. Initial Connection Handshake: Room & Node Geometry
+      if (msg.event === 'connected') {
+        if (msg.room) {
+          ROOM.width_m = msg.room.width_m || ROOM.width_m;
+          ROOM.length_m = msg.room.length_m || ROOM.length_m;
+        }
+        if (msg.nodes) {
+          Object.keys(msg.nodes).forEach(nid => {
+            if (ESP_NODES[nid] && msg.nodes[nid].pos_m) {
+              ESP_NODES[nid].pos_m = msg.nodes[nid].pos_m;
+            }
+          });
+        }
+        return;
+      }
+
+      // 2. Real-time 25Hz ruview_3d_update stream
+      if (msg.type === 'ruview_3d_update' || msg.event === 'ruview_3d_update') {
+        const pCount = msg.person_count !== undefined ? msg.person_count : (msg.human_detected ? 1 : 0);
+        const hasTgt = (pCount > 0 && (msg.has_target || msg.human_detected));
+
+        if (!tracker.isDragging) {
+          tracker.hasObject = hasTgt;
+          tracker.personCount = pCount;
+          tracker.confidence = msg.confidence || 0.0;
+
+          if (msg.position && msg.position.uncertainty_m !== undefined) {
+            tracker.uncertaintyM = msg.position.uncertainty_m;
+          }
+          if (msg.y_delta_segments) {
+            tracker.yDeltaSegments = msg.y_delta_segments;
+          }
+          if (hasTgt && msg.room_position) {
+            tracker.targetX = msg.room_position.x;
+            tracker.targetY = msg.room_position.y;
+            const regLabel = (msg.tomography_diagnostics && msg.tomography_diagnostics.location_regime) || msg.active_zone;
+            updateHUDUI(true, tracker.targetX, tracker.targetY, tracker.confidence, regLabel);
+          } else {
+            updateHUDUI(false, 0, 0, 0, 'None');
+          }
+        }
+
+        // Real-time node RF telemetry
+        const nodeMap = msg.nodes || msg.zones;
+        if (nodeMap) {
+          Object.keys(nodeMap).forEach(nid => {
+            const z = nodeMap[nid];
+            if (ESP_NODES[nid]) {
+              if (z.rssi !== undefined) ESP_NODES[nid].rssi = z.rssi;
+              if (z.variance !== undefined) ESP_NODES[nid].variance = z.variance;
+              const rssiEl = document.getElementById(`rssi-${nid}`);
+              const varEl = document.getElementById(`var-${nid}`);
+              if (rssiEl) rssiEl.textContent = `${z.rssi.toFixed(1)} dBm`;
+              if (varEl) varEl.textContent = z.variance.toFixed(4);
+            }
+          });
+        }
+        return;
+      }
+
+      // 3. Sensor Telemetry update (Live RSSI & Variance per Node)
+      if (msg.type === 'sensing_update' && msg.zones) {
+        Object.keys(msg.zones).forEach(nid => {
+          const z = msg.zones[nid];
+          if (ESP_NODES[nid]) {
+            if (z.rssi !== undefined) ESP_NODES[nid].rssi = z.rssi;
+            if (z.variance !== undefined) ESP_NODES[nid].variance = z.variance;
+
+            const rssiEl = document.getElementById(`rssi-${nid}`);
+            const varEl = document.getElementById(`var-${nid}`);
+            if (rssiEl) rssiEl.textContent = `${z.rssi.toFixed(1)} dBm`;
+            if (varEl) varEl.textContent = z.variance.toFixed(4);
+          }
+        });
+      }
+
+      // 4. Calibration Progress
+      if (msg.calibration && msg.calibration.active) {
+        const modal = document.getElementById('calib-modal');
+        const fill = document.getElementById('calib-bar-fill');
+        const status = document.getElementById('calib-status-text');
+        if (modal) modal.classList.remove('hidden');
+        if (fill) fill.style.width = `${msg.calibration.progress_pct}%`;
+        if (status) status.textContent = `${msg.calibration.remaining_s.toFixed(1)}s remaining (${msg.calibration.progress_pct}%)`;
+      } else if (msg.event === 'baseline_calibrated') {
+        const modal = document.getElementById('calib-modal');
+        if (modal) modal.classList.add('hidden');
+        console.log('[RuView] Auto-Calibration complete - variance & thresholds applied', msg);
+        alert('Auto-Calibration complete! Variance thresholds and RSSI baselines have been set automatically.');
+      }
+    }
+
+    function sendManualTarget(x, y) {
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({
+          action: 'locate_target',
+          x: x,
+          y: y,
+          target_id: 1,
+          zone: 'node_1'
+        }));
+      }
+    }
+
+    // Calibration Functions
+    function startCalibration(dur = 30) {
+      const modal = document.getElementById('calib-modal');
+      if (modal) modal.classList.remove('hidden');
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({
+          action: 'calibrate_baseline',
+          duration_s: dur
+        }));
+      }
+    }
+
+    function cancelCalibration() {
+      const modal = document.getElementById('calib-modal');
+      if (modal) modal.classList.add('hidden');
+      if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+        wsInstance.send(JSON.stringify({
+          action: 'cancel_calibration'
+        }));
+      }
+    }
+
+    // Launch Everything
+    window.addEventListener('load', () => {
+      initWebSocket();
+      render();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+numpy
+scipy
+PyYAML
+rich
+aiohttp
+pyserial
+websockets
+pytest

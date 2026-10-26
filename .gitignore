@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+config.yaml
+calibration_baseline.json
+firmware/*/secrets.h
+.idea/
+.vscode/

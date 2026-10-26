@@ -1,0 +1,4 @@
+#pragma once
+
+#define CSI_STA_SSID "YOUR_HOTSPOT_SSID"
+#define CSI_STA_PASS "YOUR_HOTSPOT_PASSWORD"
